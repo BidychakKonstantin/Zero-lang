@@ -1,0 +1,11 @@
+build/
+*.o
+*.bin
+*.elf
+*.out
+
+*.swp
+*~
+.vscode/
+.idea/
+.DS_Store
