@@ -16,7 +16,7 @@ $(TARGET): $(SRC)
 	$(LD) $(OBJ) -o $(TARGET)
 
 run: all
-	./$(TARGET)
+	./$(TARGET) test.zr
 
 clean:
 	rm -rf build
