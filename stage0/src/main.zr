@@ -1,0 +1,4 @@
+main() {
+    int64 x = 15
+    ret x
+}

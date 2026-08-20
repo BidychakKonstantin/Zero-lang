@@ -1,22 +1,38 @@
-AS = nasm
-ASFLAGS = -f elf64
+ASM = nasm
+ASMFLAGS = -f elf64 -I src/include/
 LD = ld
 
-SRC = src/main.asm
-OBJ = build/main.o
-TARGET = build/zero
+SRC_DIR = src
+BUILD_DIR = build
 
-.PHONY: all run clean
+OBJS = $(BUILD_DIR)/main.o \
+       $(BUILD_DIR)/lexer.o \
+       $(BUILD_DIR)/parser.o \
+       $(BUILD_DIR)/codegen.o
 
-all: $(TARGET)
+all: $(BUILD_DIR)/zero
 
-$(TARGET): $(SRC)
-	@mkdir -p build
-	$(AS) $(ASFLAGS) $(SRC) -o $(OBJ)
-	$(LD) $(OBJ) -o $(TARGET)
+$(BUILD_DIR)/zero: $(OBJS)
+	$(LD) $(OBJS) -o $@
 
-run: all
-	./$(TARGET) test.zr
+$(BUILD_DIR)/main.o: $(SRC_DIR)/main.asm
+	mkdir -p $(BUILD_DIR)
+	$(ASM) $(ASMFLAGS) $< -o $@
+
+$(BUILD_DIR)/lexer.o: $(SRC_DIR)/lexer.asm
+	mkdir -p $(BUILD_DIR)
+	$(ASM) $(ASMFLAGS) $< -o $@
+
+$(BUILD_DIR)/parser.o: $(SRC_DIR)/parser.asm
+	mkdir -p $(BUILD_DIR)
+	$(ASM) $(ASMFLAGS) $< -o $@
+
+$(BUILD_DIR)/codegen.o: $(SRC_DIR)/codegen.asm
+	mkdir -p $(BUILD_DIR)
+	$(ASM) $(ASMFLAGS) $< -o $@
 
 clean:
-	rm -rf build
+	rm -rf $(BUILD_DIR)
+
+run: all
+	./$(BUILD_DIR)/zero stage0/src/main.zr
