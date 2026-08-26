@@ -1,14 +1,26 @@
 %include "src/include/tokens.inc"
 
-DEFAULT REL
+default rel
 
 global parser_parse
 global symbol_table
 
 extern lexer_next_token
+extern lexer_use_file
 
 extern ident_ptr
 extern ident_len
+
+extern string_ptr
+extern string_len
+
+extern current_number
+extern token_value
+
+extern codegen_function_start
+extern codegen_function_end
+extern codegen_call_function
+extern codegen_return
 
 extern codegen_load_number
 extern codegen_load_variable
@@ -16,6 +28,7 @@ extern codegen_load_array_element
 extern codegen_load_char
 extern codegen_load_string
 
+extern codegen_store_variable
 extern codegen_save_value
 
 extern codegen_add
@@ -36,739 +49,1799 @@ extern codegen_rep_start
 extern codegen_rep_end
 
 
-SYM_FUNC equ 1
-SYM_VAR  equ 2
+%define SYS_WRITE 1
+%define SYS_EXIT  60
+%define STDOUT    1
+%define STDERR    2
 
-SYMTAB_MAX_ENTRIES equ 256
 
+; ============================================================
+; SYMBOL TABLE
+; ============================================================
+
+%define SYM_FUNC  1
+%define SYM_VAR   2
+%define SYM_CONST 3
+
+%define SYM_MAX   1024
+%define SYM_SIZE  40
+
+%define SYM_NAME_PTR  0
+%define SYM_NAME_LEN  8
+%define SYM_TYPE      16
+%define SYM_KIND      24
+%define SYM_VALUE     32
+
+
+; ============================================================
+; LIMITS
+; ============================================================
+
+%define MAX_CALL_ARGS 6
+
+
+; ============================================================
+; READ ONLY DATA
+; ============================================================
 
 section .rodata
 
-err_ident:
+msg_ident:
     db "Syntax Error: Expected identifier", 10
-err_ident_len equ $ - err_ident
+msg_ident_len equ $ - msg_ident
 
-err_lparen:
+msg_lparen:
     db "Syntax Error: Expected '('", 10
-err_lparen_len equ $ - err_lparen
+msg_lparen_len equ $ - msg_lparen
 
-err_rparen:
+msg_rparen:
     db "Syntax Error: Expected ')'", 10
-err_rparen_len equ $ - err_rparen
+msg_rparen_len equ $ - msg_rparen
 
-err_lbrace:
+msg_lbrace:
     db "Syntax Error: Expected '{'", 10
-err_lbrace_len equ $ - err_lbrace
+msg_lbrace_len equ $ - msg_lbrace
 
-err_rbrace:
+msg_rbrace:
     db "Syntax Error: Expected '}'", 10
-err_rbrace_len equ $ - err_rbrace
+msg_rbrace_len equ $ - msg_rbrace
 
-err_equal:
-    db "Syntax Error: Expected '='", 10
-err_equal_len equ $ - err_equal
-
-err_type:
-    db "Type Error: Expected type", 10
-err_type_len equ $ - err_type
-
-err_expr:
-    db "Syntax Error: Expected expression", 10
-err_expr_len equ $ - err_expr
-
-err_rbrack:
+msg_rbrack:
     db "Syntax Error: Expected ']'", 10
-err_rbrack_len equ $ - err_rbrack
+msg_rbrack_len equ $ - msg_rbrack
 
-err_else:
+msg_equal:
+    db "Syntax Error: Expected '='", 10
+msg_equal_len equ $ - msg_equal
+
+msg_type:
+    db "Syntax Error: Expected type", 10
+msg_type_len equ $ - msg_type
+
+msg_expr:
+    db "Syntax Error: Expected expression", 10
+msg_expr_len equ $ - msg_expr
+
+msg_else:
     db "Syntax Error: Expected '{' after else", 10
-err_else_len equ $ - err_else
+msg_else_len equ $ - msg_else
 
-err_symtab:
+msg_unknown:
+    db "Syntax Error: Unexpected token", 10
+msg_unknown_len equ $ - msg_unknown
+
+msg_use:
+    db "Syntax Error: Expected string after use", 10
+msg_use_len equ $ - msg_use
+
+msg_use_file:
+    db "Error: Could not open file in use", 10
+msg_use_file_len equ $ - msg_use_file
+
+msg_symtab:
     db "Internal Error: symbol table full", 10
-err_symtab_len equ $ - err_symtab
+msg_symtab_len equ $ - msg_symtab
 
-undef_1:
-    db "Semantic Error: Undefined variable '"
-undef_1_len equ $ - undef_1
+msg_const:
+    db "Syntax Error: Invalid constant value", 10
+msg_const_len equ $ - msg_const
 
-undef_2:
+msg_undefined:
+    db "Semantic Error: Undefined identifier '"
+msg_undefined_len equ $ - msg_undefined
+
+msg_not_function:
+    db "Semantic Error: Identifier is not a function", 10
+msg_not_function_len equ $ - msg_not_function
+
+msg_call_args:
+    db "Syntax Error: Too many function arguments", 10
+msg_call_args_len equ $ - msg_call_args
+
+msg_call_count:
+    db "Syntax Error: Wrong number of function arguments", 10
+msg_call_count_len equ $ - msg_call_count
+
+msg_quote:
     db "'", 10
-undef_2_len equ $ - undef_2
+msg_quote_len equ $ - msg_quote
 
+s_call_arg_pop_r9:
+    db "    pop rax", 10
+    db "    mov r9, rax", 10
+s_call_arg_pop_r9_len equ $ - s_call_arg_pop_r9
+
+s_call_arg_pop_r8:
+    db "    pop rax", 10
+    db "    mov r8, rax", 10
+s_call_arg_pop_r8_len equ $ - s_call_arg_pop_r8
+
+s_call_arg_pop_rcx:
+    db "    pop rax", 10
+    db "    mov rcx, rax", 10
+s_call_arg_pop_rcx_len equ $ - s_call_arg_pop_rcx
+
+s_call_arg_pop_rdx:
+    db "    pop rax", 10
+    db "    mov rdx, rax", 10
+s_call_arg_pop_rdx_len equ $ - s_call_arg_pop_rdx
+
+s_call_arg_pop_rsi:
+    db "    pop rax", 10
+    db "    mov rsi, rax", 10
+s_call_arg_pop_rsi_len equ $ - s_call_arg_pop_rsi
+
+s_call_arg_pop_rdi:
+    db "    pop rax", 10
+    db "    mov rdi, rax", 10
+s_call_arg_pop_rdi_len equ $ - s_call_arg_pop_rdi
+
+
+; ============================================================
+; BSS
+; ============================================================
 
 section .bss
 
+align 8
+
 symbol_table:
-    resb 8192
+    resb SYM_MAX * SYM_SIZE
 
 symbol_count:
+    resq 1
+
+current_token:
+    resq 1
+
+decl_type:
+    resq 1
+
+decl_name_ptr:
+    resq 1
+
+decl_name_len:
+    resq 1
+
+expr_name_ptr:
+    resq 1
+
+expr_name_len:
+    resq 1
+
+expr_symbol:
+    resq 1
+
+expr_delim:
     resq 1
 
 temp_type:
     resq 1
 
-array_ptr:
+temp_value:
     resq 1
 
-array_len:
+temp_delim:
+    resq 1
+
+current_function:
+    resq 1
+
+function_scope_base:
+    resq 1
+
+current_call_symbol:
+    resq 1
+
+call_arg_count:
+    resq 1
+
+call_arg_index:
     resq 1
 
 
 section .text
 
 
+; ============================================================
+; PARSER ENTRY
+; ============================================================
+
 parser_parse:
+    xor eax, eax
 
-.loop:
+    mov [rel symbol_count], rax
+    mov [rel current_token], rax
+
+    mov [rel current_function], rax
+    mov [rel function_scope_base], rax
+
+    mov [rel current_call_symbol], rax
+    mov [rel call_arg_count], rax
+    mov [rel call_arg_index], rax
+
+    call parser_next
+
+    jmp near parser_top
+
+
+; ============================================================
+; NEXT TOKEN
+; ============================================================
+
+parser_next:
     call lexer_next_token
+
+    mov [rel current_token], rax
+
+    ret
+
+
+; ============================================================
+; TOP LEVEL
+; ============================================================
+
+parser_top:
+    mov rax, [rel current_token]
 
     cmp rax, TOK_EOF
-    je .done
+    je near parser_done
 
     cmp rax, TOK_NEWLINE
-    je .loop
+    je near parser_top_next
 
-    cmp rax, TOK_IDENT
-    jne .error_ident
-
-    xor r8, r8
-    mov r9, SYM_FUNC
-    call .add_symbol
-
-    call lexer_next_token
-
-    cmp rax, TOK_LPAREN
-    jne .error_lparen
-
-    call .parse_args
-
-    call lexer_next_token
-
-    cmp rax, TOK_ARROW
-    jne .check_function_body
-
-    call lexer_next_token
-    call .is_type
-
-    cmp r8, 1
-    jne .error_type
-
-    call lexer_next_token
-
-
-.check_function_body:
-    cmp rax, TOK_LBRACE
-    jne .error_lbrace
-
-    call .parse_body
-
-    jmp .loop
-
-
-.done:
-    ret
-
-
-.parse_args:
-
-.args:
-    call lexer_next_token
-
-    cmp rax, TOK_RPAREN
-    je .args_done
-
-    call .is_type
-
-    cmp r8, 1
-    jne .error_type
-
-    mov [temp_type], rax
-
-    call lexer_next_token
-
-    cmp rax, TOK_IDENT
-    jne .error_ident
-
-    mov r8, [temp_type]
-    mov r9, SYM_VAR
-
-    call .add_symbol
-
-    call lexer_next_token
-
-    cmp rax, TOK_COMMA
-    je .args
-
-    cmp rax, TOK_RPAREN
-    je .args_done
-
-    jmp .error_rparen
-
-
-.args_done:
-    ret
-
-
-.parse_body:
-
-.body:
-    call lexer_next_token
-
-    cmp rax, TOK_EOF
-    je .error_rbrace
-
-    cmp rax, TOK_RBRACE
-    je .body_done
-
-    cmp rax, TOK_NEWLINE
-    je .body
-
-    push rax
-    call .is_type
-    mov r10, r8
-    pop rax
-
-    cmp r10, 1
-    je .parse_var
-
-    cmp rax, TOK_IF
-    je .parse_if
-
-    cmp rax, TOK_REP
-    je .parse_rep
-
-    cmp rax, TOK_RET
-    je .parse_ret
-
-    call .parse_expression
-
-    cmp rax, TOK_NEWLINE
-    je .body
-
-    cmp rax, TOK_RBRACE
-    je .body_done
-
-    jmp .body
-
-
-.body_done:
-    ret
-
-
-.parse_var:
-    mov [temp_type], rax
-
-    call lexer_next_token
-
-    cmp rax, TOK_IDENT
-    jne .error_ident
-
-    mov r8, [temp_type]
-    mov r9, SYM_VAR
-
-    call .add_symbol
-
-    call lexer_next_token
-
-    cmp rax, TOK_EQUAL
-    jne .error_equal
-
-    call lexer_next_token
-
-    call .parse_expression
-
-    cmp rax, TOK_NEWLINE
-    je .body
-
-    cmp rax, TOK_RBRACE
-    je .body_done
-
-    jmp .body
-
-
-.parse_ret:
-    call lexer_next_token
-
-    call .parse_expression
-
-    cmp rax, TOK_NEWLINE
-    je .body
-
-    cmp rax, TOK_RBRACE
-    je .body_done
-
-    jmp .body
-
-
-.parse_if:
-    call lexer_next_token
-
-    call .parse_expression
-
-    cmp rax, TOK_LBRACE
-    jne .error_lbrace
-
-    call codegen_if_start
-
-    call .parse_body
-
-    call lexer_next_token
-
-    cmp rax, TOK_ELSE
-    je .has_else
-
-    cmp rax, TOK_RBRACE
-    jne .error_rbrace
-
-    call codegen_if_end
-    jmp .body
-
-
-.has_else:
-    call codegen_if_else
-
-    call lexer_next_token
-
-    cmp rax, TOK_LBRACE
-    jne .error_else
-
-    call .parse_body
-
-    call lexer_next_token
-
-    cmp rax, TOK_RBRACE
-    jne .error_rbrace
-
-    call codegen_if_end
-
-    jmp .body
-
-
-.parse_rep:
-    call lexer_next_token
-
-    call .parse_expression
-
-    cmp rax, TOK_LBRACE
-    jne .error_lbrace
-
-    call codegen_rep_start
-
-    call .parse_body
-
-    call lexer_next_token
-
-    cmp rax, TOK_RBRACE
-    jne .error_rbrace
-
-    call codegen_rep_end
-
-    jmp .body
-
-
-.parse_expression:
-    call .parse_primary
-
-
-.expr:
-    cmp rax, TOK_PLUS
-    je .plus
-
-    cmp rax, TOK_MINUS
-    je .minus
-
-    cmp rax, TOK_STAR
-    je .mul
-
-    cmp rax, TOK_EQEQ
-    je .eqeq
-
-    cmp rax, TOK_LT
-    je .lt
-
-    cmp rax, TOK_GT
-    je .gt
-
-    cmp rax, TOK_LTE
-    je .lte
-
-    cmp rax, TOK_GTE
-    je .gte
-
-    ret
-
-
-.plus:
-    call codegen_save_value
-    call lexer_next_token
-    call .parse_primary
-    call codegen_add
-    jmp .expr
-
-
-.minus:
-    call codegen_save_value
-    call lexer_next_token
-    call .parse_primary
-    call codegen_sub
-    jmp .expr
-
-
-.mul:
-    call codegen_save_value
-    call lexer_next_token
-    call .parse_primary
-    call codegen_mul
-    jmp .expr
-
-
-.eqeq:
-    call codegen_save_value
-    call lexer_next_token
-    call .parse_primary
-    call codegen_cmp_eq
-    jmp .expr
-
-
-.lt:
-    call codegen_save_value
-    call lexer_next_token
-    call .parse_primary
-    call codegen_cmp_lt
-    jmp .expr
-
-
-.gt:
-    call codegen_save_value
-    call lexer_next_token
-    call .parse_primary
-    call codegen_cmp_gt
-    jmp .expr
-
-
-.lte:
-    call codegen_save_value
-    call lexer_next_token
-    call .parse_primary
-    call codegen_cmp_lte
-    jmp .expr
-
-
-.gte:
-    call codegen_save_value
-    call lexer_next_token
-    call .parse_primary
-    call codegen_cmp_gte
-    jmp .expr
-
-
-.parse_primary:
-
-    cmp rax, TOK_NUMBER
-    je .number
-
-    cmp rax, TOK_CHAR
-    je .char
-
-    cmp rax, TOK_STRING
-    je .string
-
-    cmp rax, TOK_IDENT
-    je .ident
-
-    cmp rax, TOK_LPAREN
-    je .paren
-
-    jmp .error_expr
-
-
-.number:
-    call codegen_load_number
-    call lexer_next_token
-    ret
-
-
-.char:
-    call codegen_load_char
-    call lexer_next_token
-    ret
-
-
-.string:
-    call codegen_load_string
-    call lexer_next_token
-    ret
-
-
-.ident:
-    call .find_symbol
-
-    test rax, rax
-    jz .error_undefined
-
-    mov r10, rax
-
-    mov r11, [ident_ptr]
-    mov [array_ptr], r11
-
-    mov r11, [ident_len]
-    mov [array_len], r11
-
-    call lexer_next_token
-
-    cmp rax, TOK_LBRACK
-    je .array
-
-    mov rax, r10
-    call codegen_load_variable
-    ret
-
-
-.array:
-    call lexer_next_token
-
-    call .parse_expression
-
-    cmp rax, TOK_RBRACK
-    jne .error_rbrack
-
-    mov r10, [array_ptr]
-    mov [ident_ptr], r10
-
-    mov r10, [array_len]
-    mov [ident_len], r10
-
-    call codegen_load_array_element
-
-    call lexer_next_token
-
-    ret
-
-
-.paren:
-    call lexer_next_token
-
-    call .parse_expression
-
-    cmp rax, TOK_RPAREN
-    jne .error_rparen
-
-    call lexer_next_token
-
-    ret
-
-
-.add_symbol:
-    mov rcx, [symbol_count]
-
-    cmp rcx, SYMTAB_MAX_ENTRIES
-    jae .error_symtab
-
-    imul rcx, rcx, 32
-
-    lea rdi, [symbol_table + rcx]
-
-    mov rsi, [ident_ptr]
-    mov [rdi], rsi
-
-    mov rsi, [ident_len]
-    mov [rdi + 8], rsi
-
-    mov [rdi + 16], r8
-    mov [rdi + 24], r9
-
-    inc qword [symbol_count]
-
-    ret
-
-
-.is_type:
-    xor r8, r8
+    cmp rax, TOK_USE
+    je near parser_top_use
 
     cmp rax, TOK_INT8
-    je .type_yes
+    je near parser_global_const
 
     cmp rax, TOK_NAT8
-    je .type_yes
+    je near parser_global_const
 
     cmp rax, TOK_INT16
-    je .type_yes
+    je near parser_global_const
 
     cmp rax, TOK_NAT16
-    je .type_yes
+    je near parser_global_const
 
     cmp rax, TOK_INT32
-    je .type_yes
+    je near parser_global_const
 
     cmp rax, TOK_NAT32
-    je .type_yes
+    je near parser_global_const
 
     cmp rax, TOK_INT64
-    je .type_yes
+    je near parser_global_const
 
     cmp rax, TOK_NAT64
-    je .type_yes
+    je near parser_global_const
+
+    cmp rax, TOK_CHR
+    je near parser_global_const
 
 %ifdef TOK_BOOL
     cmp rax, TOK_BOOL
-    je .type_yes
+    je near parser_global_const
+%endif
+
+    cmp rax, TOK_IDENT
+    je near parser_function
+
+    jmp near parser_error_unknown
+
+
+parser_top_next:
+    call parser_next
+
+    jmp near parser_top
+
+
+; ============================================================
+; USE TOP LEVEL
+; ============================================================
+
+parser_top_use:
+    call parser_next
+
+    cmp rax, TOK_STRING
+    jne near parser_error_use
+
+    mov rdi, [rel string_ptr]
+    mov rsi, [rel string_len]
+
+    call lexer_use_file
+
+    test rax, rax
+    js near parser_error_use_file
+
+    call parser_next
+
+    jmp near parser_top
+
+
+; ============================================================
+; FUNCTION
+; ============================================================
+
+parser_function:
+    mov rax, [rel ident_ptr]
+    mov [rel decl_name_ptr], rax
+
+    mov rax, [rel ident_len]
+    mov [rel decl_name_len], rax
+
+    mov rax, [rel decl_name_ptr]
+    mov [rel ident_ptr], rax
+
+    mov rax, [rel decl_name_len]
+    mov [rel ident_len], rax
+
+    xor r8d, r8d
+    mov r9d, SYM_FUNC
+
+    call parser_add_symbol
+
+    mov rcx, [rel symbol_count]
+    dec rcx
+
+    imul rcx, SYM_SIZE
+
+    lea r10, [rel symbol_table]
+    add r10, rcx
+
+    mov [rel current_function], r10
+
+    mov rax, [rel symbol_count]
+    mov [rel function_scope_base], rax
+
+    mov rax, [rel decl_name_ptr]
+    mov [rel ident_ptr], rax
+
+    mov rax, [rel decl_name_len]
+    mov [rel ident_len], rax
+
+    call codegen_function_start
+
+    call parser_next
+
+    cmp rax, TOK_LPAREN
+    jne near parser_error_lparen
+
+    call parser_args
+
+    call parser_next
+
+    cmp rax, TOK_ARROW
+    je near parser_function_return_type
+
+    cmp rax, TOK_LBRACE
+    je near parser_function_body
+
+    jmp near parser_error_lbrace
+
+
+; ============================================================
+; FUNCTION RETURN TYPE
+; ============================================================
+
+parser_function_return_type:
+    call parser_next
+
+    xor r9d, r9d
+
+    cmp rax, TOK_STAR
+    jne .return_type_no_leading_pointer
+
+    mov r9d, 1
+
+    call parser_next
+
+.return_type_no_leading_pointer:
+    call parser_is_type
+
+    test r8d, r8d
+    jz near parser_error_type
+
+    mov [rel temp_type], rax
+
+    call parser_next
+
+    cmp rax, TOK_STAR
+    jne .return_type_no_trailing_pointer
+
+    mov r9d, 1
+
+    call parser_next
+
+.return_type_no_trailing_pointer:
+    cmp rax, TOK_LBRACE
+    jne near parser_error_lbrace
+
+    mov rax, [rel temp_type]
+
+    test r9d, r9d
+    jz .return_type_not_pointer
+
+    bts rax, 63
+
+.return_type_not_pointer:
+    mov r10, [rel current_function]
+
+    test r10, r10
+    jz near parser_error_type
+
+    mov [r10 + SYM_TYPE], rax
+
+    jmp near parser_function_body
+
+
+; ============================================================
+; FUNCTION BODY
+; ============================================================
+
+parser_function_body:
+    call parser_body
+
+    call codegen_function_end
+
+    mov rax, [rel function_scope_base]
+    mov [rel symbol_count], rax
+
+    xor eax, eax
+
+    mov [rel current_function], rax
+    mov [rel function_scope_base], rax
+
+    call parser_next
+
+    jmp near parser_top
+
+
+; ============================================================
+; FUNCTION ARGUMENTS
+; ============================================================
+
+parser_args:
+    call parser_next
+
+    cmp rax, TOK_RPAREN
+    je near parser_args_done
+
+parser_args_loop:
+    mov rcx, [rel current_function]
+
+    test rcx, rcx
+    jz near parser_error_type
+
+    mov rdx, [rcx + SYM_VALUE]
+
+    cmp rdx, MAX_CALL_ARGS
+    jae near parser_error_call_args
+
+    xor r9d, r9d
+
+    cmp rax, TOK_STAR
+    jne .arg_no_leading_pointer
+
+    mov r9d, 1
+
+    call parser_next
+
+.arg_no_leading_pointer:
+    call parser_is_type
+
+    test r8d, r8d
+    jz near parser_error_type
+
+    mov [rel temp_type], rax
+
+    call parser_next
+
+    cmp rax, TOK_STAR
+    jne .arg_no_trailing_pointer
+
+    mov r9d, 1
+
+    call parser_next
+
+.arg_no_trailing_pointer:
+    cmp rax, TOK_IDENT
+    jne near parser_error_ident
+
+    mov r8, [rel temp_type]
+
+    test r9d, r9d
+    jz .arg_type_not_pointer
+
+    bts r8, 63
+
+.arg_type_not_pointer:
+    mov r9d, SYM_VAR
+
+    call parser_add_symbol
+
+    mov r10, [rel current_function]
+
+    mov rax, [r10 + SYM_VALUE]
+    inc rax
+
+    mov [r10 + SYM_VALUE], rax
+
+    call parser_next
+
+    cmp rax, TOK_COMMA
+    je near parser_args_comma
+
+    cmp rax, TOK_RPAREN
+    je near parser_args_done
+
+    jmp near parser_error_rparen
+
+parser_args_comma:
+    call parser_next
+
+    jmp near parser_args_loop
+
+parser_args_done:
+    ret
+
+
+; ============================================================
+; BODY
+; ============================================================
+
+parser_body:
+parser_body_loop:
+    call parser_next
+
+    cmp rax, TOK_RBRACE
+    je near parser_body_done
+
+    cmp rax, TOK_EOF
+    je near parser_error_rbrace
+
+    cmp rax, TOK_NEWLINE
+    je near parser_body_loop
+
+    cmp rax, TOK_USE
+    je near parser_body_use
+
+    cmp rax, TOK_INT8
+    je near parser_variable
+
+    cmp rax, TOK_NAT8
+    je near parser_variable
+
+    cmp rax, TOK_INT16
+    je near parser_variable
+
+    cmp rax, TOK_NAT16
+    je near parser_variable
+
+    cmp rax, TOK_INT32
+    je near parser_variable
+
+    cmp rax, TOK_NAT32
+    je near parser_variable
+
+    cmp rax, TOK_INT64
+    je near parser_variable
+
+    cmp rax, TOK_NAT64
+    je near parser_variable
+
+    cmp rax, TOK_CHR
+    je near parser_variable
+
+%ifdef TOK_BOOL
+    cmp rax, TOK_BOOL
+    je near parser_variable
+%endif
+
+    cmp rax, TOK_IF
+    je near parser_if
+
+    cmp rax, TOK_REP
+    je near parser_rep
+
+    cmp rax, TOK_RET
+    je near parser_return
+
+    call parser_expression
+
+    mov [rel temp_delim], rax
+
+    cmp rax, TOK_NEWLINE
+    je near parser_body_loop
+
+    cmp rax, TOK_RBRACE
+    je near parser_body_done
+
+    cmp rax, TOK_EOF
+    je near parser_error_rbrace
+
+    jmp near parser_error_unknown
+
+parser_body_done:
+    ret
+
+
+; ============================================================
+; USE INSIDE FUNCTION
+; ============================================================
+
+parser_body_use:
+    call parser_next
+
+    cmp rax, TOK_STRING
+    jne near parser_error_use
+
+    mov rdi, [rel string_ptr]
+    mov rsi, [rel string_len]
+
+    call lexer_use_file
+
+    test rax, rax
+    js near parser_error_use_file
+
+    jmp near parser_body_loop
+
+
+; ============================================================
+; VARIABLE
+; ============================================================
+
+parser_variable:
+    mov [rel decl_type], rax
+
+    xor r9d, r9d
+
+    call parser_next
+
+    cmp rax, TOK_STAR
+    jne .variable_after_type
+
+    mov r9d, 1
+
+    call parser_next
+
+.variable_after_type:
+    cmp rax, TOK_IDENT
+    jne near parser_error_ident
+
+    mov rax, [rel ident_ptr]
+    mov [rel decl_name_ptr], rax
+
+    mov rax, [rel ident_len]
+    mov [rel decl_name_len], rax
+
+    mov rax, [rel decl_type]
+
+    test r9d, r9d
+    jz .variable_type_not_pointer
+
+    bts rax, 63
+
+.variable_type_not_pointer:
+    mov [rel decl_type], rax
+
+    call parser_next
+
+    cmp rax, TOK_EQUAL
+    jne near parser_error_equal
+
+    mov r8, [rel decl_type]
+    mov r9d, SYM_VAR
+
+    mov rax, [rel decl_name_ptr]
+    mov [rel ident_ptr], rax
+
+    mov rax, [rel decl_name_len]
+    mov [rel ident_len], rax
+
+    call parser_add_symbol
+
+    call parser_next
+
+    call parser_expression
+
+    mov [rel temp_delim], rax
+
+    mov rax, [rel decl_name_ptr]
+    mov [rel ident_ptr], rax
+
+    mov rax, [rel decl_name_len]
+    mov [rel ident_len], rax
+
+    call codegen_store_variable
+
+    mov rax, [rel temp_delim]
+
+    cmp rax, TOK_NEWLINE
+    je near parser_body_loop
+
+    cmp rax, TOK_RBRACE
+    je near parser_body_done
+
+    cmp rax, TOK_EOF
+    je near parser_error_rbrace
+
+    jmp near parser_error_unknown
+
+
+; ============================================================
+; RETURN
+; ============================================================
+
+parser_return:
+    call parser_next
+
+    call parser_expression
+
+    mov [rel temp_delim], rax
+
+    call codegen_return
+
+    mov rax, [rel temp_delim]
+
+    cmp rax, TOK_NEWLINE
+    je near parser_body_loop
+
+    cmp rax, TOK_RBRACE
+    je near parser_body_done
+
+    cmp rax, TOK_EOF
+    je near parser_done
+
+    jmp near parser_error_unknown
+
+
+; ============================================================
+; IF
+; ============================================================
+
+parser_if:
+    call parser_next
+
+    call parser_expression
+
+    cmp rax, TOK_LBRACE
+    jne near parser_error_lbrace
+
+    call codegen_if_start
+
+    call parser_body
+
+    call parser_next
+
+    cmp rax, TOK_ELSE
+    je near parser_if_else
+
+    cmp rax, TOK_NEWLINE
+    je near parser_if_finish_newline
+
+    cmp rax, TOK_RBRACE
+    je near parser_if_finish_rbrace
+
+    cmp rax, TOK_EOF
+    je near parser_if_finish_eof
+
+    jmp near parser_error_unknown
+
+
+; ============================================================
+; ELSE
+; ============================================================
+
+parser_if_else:
+    call codegen_if_else
+
+    call parser_next
+
+    cmp rax, TOK_LBRACE
+    jne near parser_error_else
+
+    call parser_body
+
+    call codegen_if_end
+
+    call parser_next
+
+    cmp rax, TOK_NEWLINE
+    je near parser_body_loop
+
+    cmp rax, TOK_RBRACE
+    je near parser_body_done
+
+    cmp rax, TOK_EOF
+    je near parser_done
+
+    jmp near parser_error_unknown
+
+parser_if_finish_newline:
+    call codegen_if_end
+
+    jmp near parser_body_loop
+
+parser_if_finish_rbrace:
+    call codegen_if_end
+
+    jmp near parser_body_done
+
+parser_if_finish_eof:
+    call codegen_if_end
+
+    jmp near parser_done
+
+
+; ============================================================
+; REP
+; ============================================================
+
+parser_rep:
+    call parser_next
+
+    call parser_expression
+
+    cmp rax, TOK_LBRACE
+    jne near parser_error_lbrace
+
+    call codegen_rep_start
+
+    call parser_body
+
+    call codegen_rep_end
+
+    call parser_next
+
+    cmp rax, TOK_NEWLINE
+    je near parser_body_loop
+
+    cmp rax, TOK_RBRACE
+    je near parser_body_done
+
+    cmp rax, TOK_EOF
+    je near parser_done
+
+    jmp near parser_error_unknown
+
+
+; ============================================================
+; EXPRESSION
+; ============================================================
+
+parser_expression:
+    call parser_expression_additive
+
+    ret
+
+
+; ============================================================
+; ADDITIVE
+; ============================================================
+
+parser_expression_additive:
+    call parser_expression_multiplicative
+
+parser_expression_additive_loop:
+    cmp rax, TOK_PLUS
+    je near parser_expression_add
+
+    cmp rax, TOK_MINUS
+    je near parser_expression_sub
+
+    cmp rax, TOK_EQEQ
+    je near parser_expression_eq
+
+    cmp rax, TOK_LT
+    je near parser_expression_lt
+
+    cmp rax, TOK_GT
+    je near parser_expression_gt
+
+    cmp rax, TOK_LTE
+    je near parser_expression_lte
+
+    cmp rax, TOK_GTE
+    je near parser_expression_gte
+
+    ret
+
+
+; ============================================================
+; ADD / SUB
+; ============================================================
+
+parser_expression_add:
+    call codegen_save_value
+
+    call parser_next
+
+    call parser_expression_multiplicative
+
+    mov [rel temp_delim], rax
+
+    call codegen_add
+
+    mov rax, [rel temp_delim]
+
+    jmp near parser_expression_additive_loop
+
+parser_expression_sub:
+    call codegen_save_value
+
+    call parser_next
+
+    call parser_expression_multiplicative
+
+    mov [rel temp_delim], rax
+
+    call codegen_sub
+
+    mov rax, [rel temp_delim]
+
+    jmp near parser_expression_additive_loop
+
+
+; ============================================================
+; MULTIPLICATIVE
+; ============================================================
+
+parser_expression_multiplicative:
+    call parser_expression_primary
+
+parser_expression_multiplicative_loop:
+    cmp rax, TOK_STAR
+    je near parser_expression_mul
+
+    ret
+
+parser_expression_mul:
+    call codegen_save_value
+
+    call parser_next
+
+    call parser_expression_primary
+
+    mov [rel temp_delim], rax
+
+    call codegen_mul
+
+    mov rax, [rel temp_delim]
+
+    jmp near parser_expression_multiplicative_loop
+
+
+; ============================================================
+; PRIMARY
+; ============================================================
+
+parser_expression_primary:
+    mov rax, [rel current_token]
+
+    cmp rax, TOK_NUMBER
+    je near parser_primary_number
+
+    cmp rax, TOK_NULL
+    je near parser_primary_null
+
+    cmp rax, TOK_CHAR
+    je near parser_primary_char
+
+    cmp rax, TOK_STRING
+    je near parser_primary_string
+
+    cmp rax, TOK_IDENT
+    je near parser_primary_identifier
+
+    cmp rax, TOK_LPAREN
+    je near parser_primary_paren
+
+    jmp near parser_error_expr
+
+parser_primary_number:
+    call codegen_load_number
+
+    call parser_next
+
+    ret
+
+parser_primary_null:
+    xor rax, rax
+    mov [rel current_number], rax
+    mov [rel token_value], rax
+    
+    call codegen_load_number
+    
+    call parser_next
+    
+    ret
+
+parser_primary_char:
+    call codegen_load_char
+
+    call parser_next
+
+    ret
+
+parser_primary_string:
+    call codegen_load_string
+
+    call parser_next
+
+    ret
+
+parser_primary_identifier:
+    mov rax, [rel ident_ptr]
+    mov [rel expr_name_ptr], rax
+
+    mov rax, [rel ident_len]
+    mov [rel expr_name_len], rax
+
+    call parser_next
+
+    cmp rax, TOK_LPAREN
+    je near parser_primary_call
+
+    cmp rax, TOK_LBRACK
+    je near parser_primary_array
+
+    mov [rel expr_delim], rax
+
+    mov rax, [rel expr_name_ptr]
+    mov [rel ident_ptr], rax
+
+    mov rax, [rel expr_name_len]
+    mov [rel ident_len], rax
+
+    call parser_find_symbol
+
+    test rax, rax
+    jz near parser_error_undefined
+
+    mov [rel expr_symbol], rax
+
+    cmp qword [rax + SYM_KIND], SYM_FUNC
+    je near parser_error_expr
+
+    cmp qword [rax + SYM_KIND], SYM_VAR
+    je near parser_primary_variable
+
+    cmp qword [rax + SYM_KIND], SYM_CONST
+    je near parser_primary_constant
+
+    jmp near parser_error_expr
+
+parser_primary_variable:
+    mov rax, [rel expr_name_ptr]
+    mov [rel ident_ptr], rax
+
+    mov rax, [rel expr_name_len]
+    mov [rel ident_len], rax
+
+    call codegen_load_variable
+
+    mov rax, [rel expr_delim]
+
+    ret
+
+parser_primary_constant:
+    mov rax, [rel expr_symbol]
+
+    mov rax, [rax + SYM_VALUE]
+
+    mov [rel current_number], rax
+    mov [rel token_value], rax
+
+    call codegen_load_number
+
+    mov rax, [rel expr_delim]
+
+    ret
+
+
+; ============================================================
+; FUNCTION CALL
+; ============================================================
+
+parser_primary_call:
+    push qword [rel expr_name_ptr]
+    push qword [rel expr_name_len]
+    push qword [rel current_call_symbol]
+    push qword [rel call_arg_count]
+
+    mov rax, [rel expr_name_ptr]
+    mov [rel ident_ptr], rax
+
+    mov rax, [rel expr_name_len]
+    mov [rel ident_len], rax
+
+    call parser_find_symbol
+
+    test rax, rax
+    jz near parser_error_undefined
+
+    cmp qword [rax + SYM_KIND], SYM_FUNC
+    jne near parser_error_not_function
+
+    mov [rel current_call_symbol], rax
+
+    xor eax, eax
+    mov [rel call_arg_count], rax
+
+    call parser_next
+
+    cmp rax, TOK_RPAREN
+    je near parser_call_no_args
+
+    jmp near parser_call_args
+
+parser_call_args:
+    mov rax, [rel call_arg_count]
+
+    cmp rax, MAX_CALL_ARGS
+    jae near parser_error_call_args
+
+    call parser_expression
+
+    mov [rel temp_delim], rax
+
+    call codegen_save_value
+
+    inc qword [rel call_arg_count]
+
+    mov rax, [rel temp_delim]
+
+    cmp rax, TOK_COMMA
+    je near parser_call_comma
+
+    cmp rax, TOK_RPAREN
+    je near parser_call_done
+
+    jmp near parser_error_rparen
+
+parser_call_comma:
+    call parser_next
+
+    jmp near parser_call_args
+
+parser_call_no_args:
+    xor eax, eax
+    mov [rel call_arg_count], rax
+
+    jmp near parser_call_done
+
+parser_call_done:
+    mov r10, [rel current_call_symbol]
+    mov rcx, [r10 + SYM_VALUE]
+
+    mov rax, [rel call_arg_count]
+
+    cmp rax, rcx
+    jne near parser_error_call_count
+
+    mov rax, [rel expr_name_ptr]
+    mov [rel ident_ptr], rax
+
+    mov rax, [rel expr_name_len]
+    mov [rel ident_len], rax
+
+    call parser_emit_call_arguments
+
+    call codegen_call_function
+
+    call parser_next
+
+    pop qword [rel call_arg_count]
+    pop qword [rel current_call_symbol]
+    pop qword [rel expr_name_len]
+    pop qword [rel expr_name_ptr]
+
+    ret
+
+parser_emit_call_arguments:
+    mov rax, [rel call_arg_count]
+
+    cmp rax, 6
+    je .args6
+
+    cmp rax, 5
+    je .args5
+
+    cmp rax, 4
+    je .args4
+
+    cmp rax, 3
+    je .args3
+
+    cmp rax, 2
+    je .args2
+
+    cmp rax, 1
+    je .args1
+
+    ret
+
+.args6:
+    call parser_emit_arg_r9
+
+.args5:
+    call parser_emit_arg_r8
+
+.args4:
+    call parser_emit_arg_rcx
+
+.args3:
+    call parser_emit_arg_rdx
+
+.args2:
+    call parser_emit_arg_rsi
+
+.args1:
+    call parser_emit_arg_rdi
+
+    ret
+
+parser_emit_arg_r9:
+    mov eax, SYS_WRITE
+    mov edi, STDOUT
+    lea rsi, [rel s_call_arg_pop_r9]
+    mov edx, s_call_arg_pop_r9_len
+    syscall
+    ret
+
+parser_emit_arg_r8:
+    mov eax, SYS_WRITE
+    mov edi, STDOUT
+    lea rsi, [rel s_call_arg_pop_r8]
+    mov edx, s_call_arg_pop_r8_len
+    syscall
+    ret
+
+parser_emit_arg_rcx:
+    mov eax, SYS_WRITE
+    mov edi, STDOUT
+    lea rsi, [rel s_call_arg_pop_rcx]
+    mov edx, s_call_arg_pop_rcx_len
+    syscall
+    ret
+
+parser_emit_arg_rdx:
+    mov eax, SYS_WRITE
+    mov edi, STDOUT
+    lea rsi, [rel s_call_arg_pop_rdx]
+    mov edx, s_call_arg_pop_rdx_len
+    syscall
+    ret
+
+parser_emit_arg_rsi:
+    mov eax, SYS_WRITE
+    mov edi, STDOUT
+    lea rsi, [rel s_call_arg_pop_rsi]
+    mov edx, s_call_arg_pop_rsi_len
+    syscall
+    ret
+
+parser_emit_arg_rdi:
+    mov eax, SYS_WRITE
+    mov edi, STDOUT
+    lea rsi, [rel s_call_arg_pop_rdi]
+    mov edx, s_call_arg_pop_rdi_len
+    syscall
+    ret
+
+parser_primary_array:
+    call parser_next
+
+    call parser_expression
+
+    cmp rax, TOK_RBRACK
+    jne near parser_error_rbrack
+
+    mov rax, [rel expr_name_ptr]
+    mov [rel ident_ptr], rax
+
+    mov rax, [rel expr_name_len]
+    mov [rel ident_len], rax
+
+    call codegen_load_array_element
+
+    call parser_next
+
+    ret
+
+parser_primary_paren:
+    call parser_next
+
+    call parser_expression
+
+    cmp rax, TOK_RPAREN
+    jne near parser_error_rparen
+
+    call parser_next
+
+    ret
+
+
+; ============================================================
+; COMPARISONS
+; ============================================================
+
+parser_expression_eq:
+    call codegen_save_value
+
+    call parser_next
+
+    call parser_expression_additive
+
+    mov [rel temp_delim], rax
+
+    call codegen_cmp_eq
+
+    mov rax, [rel temp_delim]
+
+    ret
+
+parser_expression_lt:
+    call codegen_save_value
+
+    call parser_next
+
+    call parser_expression_additive
+
+    mov [rel temp_delim], rax
+
+    call codegen_cmp_lt
+
+    mov rax, [rel temp_delim]
+
+    ret
+
+parser_expression_gt:
+    call codegen_save_value
+
+    call parser_next
+
+    call parser_expression_additive
+
+    mov [rel temp_delim], rax
+
+    call codegen_cmp_gt
+
+    mov rax, [rel temp_delim]
+
+    ret
+
+parser_expression_lte:
+    call codegen_save_value
+
+    call parser_next
+
+    call parser_expression_additive
+
+    mov [rel temp_delim], rax
+
+    call codegen_cmp_lte
+
+    mov rax, [rel temp_delim]
+
+    ret
+
+parser_expression_gte:
+    call codegen_save_value
+
+    call parser_next
+
+    call parser_expression_additive
+
+    mov [rel temp_delim], rax
+
+    call codegen_cmp_gte
+
+    mov rax, [rel temp_delim]
+
+    ret
+
+
+; ============================================================
+; GLOBAL CONSTANTS
+; ============================================================
+
+parser_global_const:
+    mov [rel temp_type], rax
+
+    call parser_next
+
+    cmp rax, TOK_IDENT
+    jne near parser_error_ident
+
+    mov rax, [rel ident_ptr]
+    mov [rel decl_name_ptr], rax
+
+    mov rax, [rel ident_len]
+    mov [rel decl_name_len], rax
+
+    call parser_next
+
+    cmp rax, TOK_EQUAL
+    jne near parser_error_equal
+
+    call parser_next
+
+    cmp rax, TOK_NUMBER
+    je near parser_global_const_number
+
+    cmp rax, TOK_NULL
+    je near parser_global_const_null
+
+    cmp rax, TOK_CHAR
+    je near parser_global_const_char
+
+    cmp rax, TOK_MINUS
+    je near parser_global_const_negative
+
+    cmp rax, TOK_IDENT
+    je near parser_global_const_identifier
+
+    jmp near parser_error_const
+
+parser_global_const_number:
+    mov rax, [rel current_number]
+    mov [rel temp_value], rax
+    jmp near parser_global_const_store
+
+parser_global_const_null:
+    xor rax, rax
+    mov [rel temp_value], rax
+    jmp near parser_global_const_store
+
+parser_global_const_char:
+    mov rax, [rel token_value]
+    mov [rel temp_value], rax
+    jmp near parser_global_const_store
+
+parser_global_const_negative:
+    call parser_next
+
+    cmp rax, TOK_NUMBER
+    jne near parser_error_const
+
+    mov rax, [rel current_number]
+
+    neg rax
+
+    mov [rel temp_value], rax
+
+    jmp near parser_global_const_store
+
+parser_global_const_identifier:
+    call parser_find_symbol
+
+    test rax, rax
+    jz near parser_error_undefined
+
+    cmp qword [rax + SYM_KIND], SYM_CONST
+    jne near parser_error_const
+
+    mov rax, [rax + SYM_VALUE]
+
+    mov [rel temp_value], rax
+
+parser_global_const_store:
+    mov rcx, [rel symbol_count]
+
+    cmp rcx, SYM_MAX
+    jae near parser_error_symtab
+
+    imul rcx, SYM_SIZE
+
+    lea rdi, [rel symbol_table]
+
+    add rdi, rcx
+
+    mov rax, [rel decl_name_ptr]
+    mov [rdi + SYM_NAME_PTR], rax
+
+    mov rax, [rel decl_name_len]
+    mov [rdi + SYM_NAME_LEN], rax
+
+    mov rax, [rel temp_type]
+    mov [rdi + SYM_TYPE], rax
+
+    mov qword [rdi + SYM_KIND], SYM_CONST
+
+    mov rax, [rel temp_value]
+    mov [rdi + SYM_VALUE], rax
+
+    inc qword [rel symbol_count]
+
+    call parser_next
+
+    cmp rax, TOK_NEWLINE
+    je near parser_top
+
+    cmp rax, TOK_EOF
+    je near parser_done
+
+    jmp near parser_error_unknown
+
+
+; ============================================================
+; TYPE CHECK & SYMBOL HELPERS
+; ============================================================
+
+parser_is_type:
+    xor r8d, r8d
+
+    cmp rax, TOK_INT8
+    je near parser_is_type_yes
+
+    cmp rax, TOK_NAT8
+    je near parser_is_type_yes
+
+    cmp rax, TOK_INT16
+    je near parser_is_type_yes
+
+    cmp rax, TOK_NAT16
+    je near parser_is_type_yes
+
+    cmp rax, TOK_INT32
+    je near parser_is_type_yes
+
+    cmp rax, TOK_NAT32
+    je near parser_is_type_yes
+
+    cmp rax, TOK_INT64
+    je near parser_is_type_yes
+
+    cmp rax, TOK_NAT64
+    je near parser_is_type_yes
+
+    cmp rax, TOK_CHR
+    je near parser_is_type_yes
+
+%ifdef TOK_BOOL
+    cmp rax, TOK_BOOL
+    je near parser_is_type_yes
 %endif
 
     ret
 
+parser_is_type_yes:
+    mov r8d, 1
 
-.type_yes:
-    mov r8, 1
     ret
 
 
-.find_symbol:
-    mov rcx, [symbol_count]
-    lea rdi, [symbol_table]
+parser_add_symbol:
+    mov rcx, [rel symbol_count]
+
+    cmp rcx, SYM_MAX
+    jae near parser_error_symtab
+
+    imul rcx, SYM_SIZE
+
+    lea rdi, [rel symbol_table]
+
+    add rdi, rcx
+
+    mov rax, [rel ident_ptr]
+    mov [rdi + SYM_NAME_PTR], rax
+
+    mov rax, [rel ident_len]
+    mov [rdi + SYM_NAME_LEN], rax
+
+    mov [rdi + SYM_TYPE], r8
+
+    mov [rdi + SYM_KIND], r9
+
+    xor eax, eax
+    mov [rdi + SYM_VALUE], rax
+
+    inc qword [rel symbol_count]
+
+    ret
 
 
-.find_loop:
+parser_find_symbol:
+    lea rdi, [rel symbol_table]
+
+    mov rcx, [rel symbol_count]
+
+parser_find_loop:
     test rcx, rcx
-    jz .not_found
+    jz near parser_find_not_found
 
-    mov r9, [rdi + 8]
+    mov r8, [rdi + SYM_NAME_LEN]
 
-    cmp r9, [ident_len]
-    jne .next
+    cmp r8, [rel ident_len]
+    jne near parser_find_next
 
-    mov rsi, [ident_ptr]
-    mov rdx, [rdi]
+    mov rsi, [rel ident_ptr]
+    mov rdx, [rdi + SYM_NAME_PTR]
 
-    mov r10, r9
+    mov r9, r8
 
+parser_find_compare:
+    test r9, r9
+    jz near parser_find_found
 
-.compare:
-    test r10, r10
-    jz .found
+    mov al, [rsi]
 
-    mov r11b, [rsi]
-    cmp r11b, [rdx]
-    jne .next
+    cmp al, [rdx]
+    jne near parser_find_next
 
     inc rsi
     inc rdx
-    dec r10
 
-    jmp .compare
+    dec r9
 
+    jmp near parser_find_compare
 
-.next:
-    add rdi, 32
+parser_find_next:
+    add rdi, SYM_SIZE
+
     dec rcx
-    jmp .find_loop
 
+    jmp near parser_find_loop
 
-.found:
+parser_find_found:
     mov rax, rdi
+
     ret
 
-
-.not_found:
+parser_find_not_found:
     xor eax, eax
     ret
 
 
-.error_ident:
-    mov rsi, err_ident
-    mov rdx, err_ident_len
-    jmp .fatal
+; ============================================================
+; ERROR HANDLERS
+; ============================================================
 
-
-.error_lparen:
-    mov rsi, err_lparen
-    mov rdx, err_lparen_len
-    jmp .fatal
-
-
-.error_rparen:
-    mov rsi, err_rparen
-    mov rdx, err_rparen_len
-    jmp .fatal
-
-
-.error_lbrace:
-    mov rsi, err_lbrace
-    mov rdx, err_lbrace_len
-    jmp .fatal
-
-
-.error_rbrace:
-    mov rsi, err_rbrace
-    mov rdx, err_rbrace_len
-    jmp .fatal
-
-
-.error_equal:
-    mov rsi, err_equal
-    mov rdx, err_equal_len
-    jmp .fatal
-
-
-.error_type:
-    mov rsi, err_type
-    mov rdx, err_type_len
-    jmp .fatal
-
-
-.error_expr:
-    mov rsi, err_expr
-    mov rdx, err_expr_len
-    jmp .fatal
-
-
-.error_rbrack:
-    mov rsi, err_rbrack
-    mov rdx, err_rbrack_len
-    jmp .fatal
-
-
-.error_else:
-    mov rsi, err_else
-    mov rdx, err_else_len
-    jmp .fatal
-
-
-.error_symtab:
-    mov rsi, err_symtab
-    mov rdx, err_symtab_len
-    jmp .fatal
-
-
-.error_undefined:
-    mov eax, 1
-    mov edi, 2
-    mov rsi, undef_1
-    mov edx, undef_1_len
+parser_fatal:
+    mov eax, SYS_WRITE
+    mov edi, STDERR
     syscall
 
-    mov eax, 1
-    mov edi, 2
-    mov rsi, [ident_ptr]
-    mov rdx, [ident_len]
-    syscall
-
-    mov eax, 1
-    mov edi, 2
-    mov rsi, undef_2
-    mov edx, undef_2_len
-    syscall
-
-    mov eax, 60
+    mov eax, SYS_EXIT
     mov edi, 1
     syscall
 
 
-.fatal:
-    mov eax, 1
-    mov edi, 2
+parser_error_ident:
+    lea rsi, [rel msg_ident]
+    mov edx, msg_ident_len
+    jmp parser_fatal
+
+parser_error_lparen:
+    lea rsi, [rel msg_lparen]
+    mov edx, msg_lparen_len
+    jmp parser_fatal
+
+parser_error_rparen:
+    lea rsi, [rel msg_rparen]
+    mov edx, msg_rparen_len
+    jmp parser_fatal
+
+parser_error_lbrace:
+    lea rsi, [rel msg_lbrace]
+    mov edx, msg_lbrace_len
+    jmp parser_fatal
+
+parser_error_rbrace:
+    lea rsi, [rel msg_rbrace]
+    mov edx, msg_rbrace_len
+    jmp parser_fatal
+
+parser_error_rbrack:
+    lea rsi, [rel msg_rbrack]
+    mov edx, msg_rbrack_len
+    jmp parser_fatal
+
+parser_error_equal:
+    lea rsi, [rel msg_equal]
+    mov edx, msg_equal_len
+    jmp parser_fatal
+
+parser_error_type:
+    lea rsi, [rel msg_type]
+    mov edx, msg_type_len
+    jmp parser_fatal
+
+parser_error_expr:
+    lea rsi, [rel msg_expr]
+    mov edx, msg_expr_len
+    jmp parser_fatal
+
+parser_error_else:
+    lea rsi, [rel msg_else]
+    mov edx, msg_else_len
+    jmp parser_fatal
+
+parser_error_unknown:
+    lea rsi, [rel msg_unknown]
+    mov edx, msg_unknown_len
+    jmp parser_fatal
+
+parser_error_use:
+    lea rsi, [rel msg_use]
+    mov edx, msg_use_len
+    jmp parser_fatal
+
+parser_error_use_file:
+    lea rsi, [rel msg_use_file]
+    mov edx, msg_use_file_len
+    jmp parser_fatal
+
+parser_error_symtab:
+    lea rsi, [rel msg_symtab]
+    mov edx, msg_symtab_len
+    jmp parser_fatal
+
+parser_error_const:
+    lea rsi, [rel msg_const]
+    mov edx, msg_const_len
+    jmp parser_fatal
+
+parser_error_not_function:
+    lea rsi, [rel msg_not_function]
+    mov edx, msg_not_function_len
+    jmp parser_fatal
+
+parser_error_call_args:
+    lea rsi, [rel msg_call_args]
+    mov edx, msg_call_args_len
+    jmp parser_fatal
+
+parser_error_call_count:
+    lea rsi, [rel msg_call_count]
+    mov edx, msg_call_count_len
+    jmp parser_fatal
+
+parser_error_undefined:
+    mov eax, SYS_WRITE
+    mov edi, STDERR
+    lea rsi, [rel msg_undefined]
+    mov edx, msg_undefined_len
     syscall
 
-    mov eax, 60
+    mov eax, SYS_WRITE
+    mov edi, STDERR
+    mov rsi, [rel ident_ptr]
+    mov rdx, [rel ident_len]
+    syscall
+
+    mov eax, SYS_WRITE
+    mov edi, STDERR
+    lea rsi, [rel msg_quote]
+    mov edx, msg_quote_len
+    syscall
+
+    mov eax, SYS_EXIT
     mov edi, 1
     syscall
+
+parser_done:
+    ret

@@ -1,4 +1,9 @@
+// main.zr
+use "tokens.zr"
+
 main() {
-    int64 x = 15
-    ret x
+    nat8 xa = TOK_EOF
+    chr* str = NULL
+
+    ret *str
 }

@@ -1,0 +1,22 @@
+use "tokens.zr"
+
+   nat64 token_value = 0
+   char* token_ptr   = 0
+   nat64 token_len   = 0
+
+   chr* lex_current = 0
+   nat16 lex_line    = 0 
+   nat16 lex_col     = 0
+   
+
+lexer_init(chr* source_ptr)
+{
+    lex_current = source_ptr
+    lex_line        =  1
+}
+
+lexer_peek() -> char 
+{
+    ret *lex_current
+}
+   

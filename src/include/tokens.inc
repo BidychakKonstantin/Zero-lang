@@ -44,3 +44,6 @@
 %define TOK_INT64        35
 %define TOK_NAT64        36
 %define TOK_BOOL         37
+%define TOK_USE          38
+%define TOK_NULL         39
+%define TOK_CHR          40

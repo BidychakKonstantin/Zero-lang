@@ -1,0 +1,47 @@
+nat8    TOK_EOF        = 0
+nat8    TOK_UNKNOWN    =  1
+nat8    TOK_NEWLINE     = 2
+
+nat8    TOK_IDENT       =3
+nat8    TOK_NUMBER       =4
+nat8    TOK_CHAR         =5
+nat8    TOK_STRING       =6
+
+nat8    TOK_LBRACE       =7
+nat8    TOK_RBRACE       =8
+nat8    TOK_LPAREN       =9
+nat8    TOK_RPAREN       =10
+nat8    TOK_LBRACK      = 11
+nat8    TOK_RBRACK       =12
+nat8    TOK_COMMA     =   13
+
+nat8    TOK_EQUAL     =  14
+nat8    TOK_EQEQ      =   15
+
+nat8    TOK_PLUS       =  16
+nat8    TOK_MINUS       = 17
+nat8    TOK_STAR         =18
+nat8    TOK_SLASH     =   19
+
+nat8    TOK_LT        =  20
+nat8    TOK_GT         =  21
+nat8    TOK_LTE         = 22
+nat8    TOK_GTE          =23
+
+nat8    TOK_ARROW       = 24
+
+nat8    TOK_IF     =      25
+nat8    TOK_ELSE    =     26
+nat8    TOK_REP     =    27
+nat8    TOK_RET      =    28
+
+nat8    TOK_INT8      =   29
+nat8    TOK_NAT8       =  30
+nat8    TOK_INT16      = 31
+nat8    TOK_NAT16       = 32
+nat8    TOK_INT32     =   33
+nat8    TOK_NAT32    =   34
+nat8    TOK_INT64     =  35
+nat8    TOK_NAT64      =  36
+nat8    TOK_BOOL        = 37
+
