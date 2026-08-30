@@ -1,4 +1,5 @@
 %include "src/include/tokens.inc"
+
 default rel
 
 global lexer_init
@@ -8,16 +9,24 @@ global lexer_set_source_dir
 
 global ident_ptr
 global ident_len
+
 global string_ptr
 global string_len
+
 global current_number
 global token_value
+
 global line_number
 global col_number
 
-%define SYS_READ 0
-%define SYS_CLOSE 3
+global source_ptr
+global source_end
+
+
+%define SYS_READ   0
+%define SYS_CLOSE  3
 %define SYS_OPENAT 257
+
 %define AT_FDCWD -100
 %define O_RDONLY 0
 
@@ -25,76 +34,86 @@ global col_number
 %define SOURCE_BUFFER_SIZE 65536
 %define PATH_BUFFER_SIZE 4096
 
-section .bss
-src_ptr:
-resq 1
 
-src_end:
-resq 1
+section .bss
+
+source_ptr:
+    resq 1
+
+source_end:
+    resq 1
 
 line_number:
-resq 1
+    resq 1
 
 col_number:
-resq 1
+    resq 1
 
 token_value:
-resq 1
+    resq 1
 
 current_number:
-resq 1
+    resq 1
 
 ident_ptr:
-resq 1
+    resq 1
 
 ident_len:
-resq 1
+    resq 1
 
 string_ptr:
-resq 1
+    resq 1
 
 string_len:
-resq 1
+    resq 1
 
 source_depth:
-resq 1
+    resq 1
 
 source_ptr_stack:
-resq MAX_SOURCE_DEPTH
+    resq MAX_SOURCE_DEPTH
 
 source_end_stack:
-resq MAX_SOURCE_DEPTH
+    resq MAX_SOURCE_DEPTH
 
 source_line_stack:
-resq MAX_SOURCE_DEPTH
+    resq MAX_SOURCE_DEPTH
 
 source_col_stack:
-resq MAX_SOURCE_DEPTH
+    resq MAX_SOURCE_DEPTH
 
 source_dir_stack:
-resb MAX_SOURCE_DEPTH * PATH_BUFFER_SIZE
+    resb MAX_SOURCE_DEPTH * PATH_BUFFER_SIZE
 
 current_source_dir:
-resb PATH_BUFFER_SIZE
+    resb PATH_BUFFER_SIZE
 
 path_buffer:
-resb PATH_BUFFER_SIZE
+    resb PATH_BUFFER_SIZE
 
 source_buffers:
-resb MAX_SOURCE_DEPTH * SOURCE_BUFFER_SIZE
+    resb MAX_SOURCE_DEPTH * SOURCE_BUFFER_SIZE
+
 
 section .text
 
 
+; ============================================================
+; INIT
+; ============================================================
+
 lexer_init:
+
     mov qword [rel source_depth], 0
+
     mov qword [rel line_number], 1
     mov qword [rel col_number], 1
 
-    mov [rel src_ptr], rdi
+    mov [rel source_ptr], rdi
 
     lea rax, [rdi + rsi]
-    mov [rel src_end], rax
+
+    mov [rel source_end], rax
 
     xor eax, eax
 
@@ -110,7 +129,12 @@ lexer_init:
     ret
 
 
+; ============================================================
+; SET SOURCE DIR
+; ============================================================
+
 lexer_set_source_dir:
+
     push r12
     push r13
 
@@ -118,26 +142,36 @@ lexer_set_source_dir:
     mov r13, rsi
 
     cmp r13, PATH_BUFFER_SIZE - 2
+
     ja .fail
 
     lea rdi, [rel current_source_dir]
+
     mov rsi, r12
     mov rcx, r13
 
     rep movsb
 
     test r13, r13
-    jz .slash
+
+    jz .done            ; no directory part -> current_source_dir = "" (cwd)
 
     lea r11, [rel current_source_dir]
+
     cmp byte [r11 + r13 - 1], '/'
-    je .terminate
+
+    je .done
+
 
 .slash:
+
     mov byte [rdi], '/'
+
     inc rdi
 
-.terminate:
+
+.done:
+
     mov byte [rdi], 0
 
     xor eax, eax
@@ -147,7 +181,9 @@ lexer_set_source_dir:
 
     ret
 
+
 .fail:
+
     mov rax, -1
 
     pop r13
@@ -156,7 +192,12 @@ lexer_set_source_dir:
     ret
 
 
+; ============================================================
+; USE FILE
+; ============================================================
+
 lexer_use_file:
+
     push rbx
     push r12
     push r13
@@ -179,35 +220,67 @@ lexer_use_file:
 
     mov rbx, rax
 
+
+    ; save source pointer
+
     lea r11, [rel source_ptr_stack]
-    mov rax, [rel src_ptr]
+
+    mov rax, [rel source_ptr]
+
     mov [r11 + rbx * 8], rax
+
+
+    ; save source end
 
     lea r11, [rel source_end_stack]
-    mov rax, [rel src_end]
+
+    mov rax, [rel source_end]
+
     mov [r11 + rbx * 8], rax
+
+
+    ; save line
 
     lea r11, [rel source_line_stack]
+
     mov rax, [rel line_number]
+
     mov [r11 + rbx * 8], rax
+
+
+    ; save column
 
     lea r11, [rel source_col_stack]
+
     mov rax, [rel col_number]
+
     mov [r11 + rbx * 8], rax
 
+
+    ; save current directory
+
     mov rax, rbx
+
     imul rax, PATH_BUFFER_SIZE
 
     lea rdi, [rel source_dir_stack]
+
     add rdi, rax
+
     lea rsi, [rel current_source_dir]
 
     call lexer_copy_string
 
+
+    ; relative / absolute
+
     cmp byte [r12], '/'
+
     je .absolute
 
+
     lea rdi, [rel path_buffer]
+
     mov r8, rdi
 
     lea rsi, [rel current_source_dir]
@@ -215,14 +288,18 @@ lexer_use_file:
     call lexer_copy_string
 
     mov rax, rdi
+
     sub rax, r8
+
     add rax, r13
+
     inc rax
 
     cmp rax, PATH_BUFFER_SIZE
     jae .fail
 
     mov rsi, r12
+
     mov rcx, r13
 
     rep movsb
@@ -231,56 +308,87 @@ lexer_use_file:
 
     jmp .open
 
+
 .absolute:
+
     lea rdi, [rel path_buffer]
+
     mov rsi, r12
+
     mov rcx, r13
 
     rep movsb
 
     mov byte [rdi], 0
 
+
 .open:
+
     mov eax, SYS_OPENAT
+
     mov edi, AT_FDCWD
+
     lea rsi, [rel path_buffer]
+
     mov edx, O_RDONLY
+
     xor r10d, r10d
 
     syscall
 
     test rax, rax
+
     js .fail
 
     mov r15, rax
 
+
+    ; buffer
+
     mov rax, rbx
+
     imul rax, SOURCE_BUFFER_SIZE
 
     lea r14, [rel source_buffers]
+
     add r14, rax
 
+
+    ; read
+
     mov eax, SYS_READ
+
     mov rdi, r15
+
     mov rsi, r14
+
     mov edx, SOURCE_BUFFER_SIZE
 
     syscall
 
     test rax, rax
+
     js .read_fail
 
     mov r13, rax
 
+
+    ; close
+
     mov eax, SYS_CLOSE
+
     mov rdi, r15
 
     syscall
 
-    mov [rel src_ptr], r14
+
+    ; switch source
+
+    mov [rel source_ptr], r14
 
     lea rax, [r14 + r13]
-    mov [rel src_end], rax
+
+    mov [rel source_end], rax
 
     mov qword [rel line_number], 1
     mov qword [rel col_number], 1
@@ -288,6 +396,7 @@ lexer_use_file:
     call lexer_update_current_dir
 
     inc rbx
+
     mov [rel source_depth], rbx
 
     xor eax, eax
@@ -300,13 +409,18 @@ lexer_use_file:
 
     ret
 
+
 .read_fail:
+
     mov eax, SYS_CLOSE
+
     mov rdi, r15
 
     syscall
 
+
 .fail:
+
     mov rax, -1
 
     pop r15
@@ -318,15 +432,23 @@ lexer_use_file:
     ret
 
 
+; ============================================================
+; COPY STRING
+; ============================================================
+
 lexer_copy_string:
+
 .copy:
+
     mov al, [rsi]
+
     mov [rdi], al
 
     inc rsi
     inc rdi
 
     test al, al
+
     jnz .copy
 
     dec rdi
@@ -334,42 +456,62 @@ lexer_copy_string:
     ret
 
 
+; ============================================================
+; UPDATE DIRECTORY
+; ============================================================
+
 lexer_update_current_dir:
+
     lea rsi, [rel path_buffer]
+
     xor rcx, rcx
 
+
 .find_end:
+
     cmp byte [rsi + rcx], 0
+
     je .end_found
 
     inc rcx
 
     cmp rcx, PATH_BUFFER_SIZE
+
     jb .find_end
 
     ret
 
+
 .end_found:
+
     test rcx, rcx
+
     jz .no_dir
 
     dec rcx
 
+
 .find_slash:
+
     cmp byte [rsi + rcx], '/'
+
     je .slash_found
 
     test rcx, rcx
+
     jz .no_dir
 
     dec rcx
 
     jmp .find_slash
 
+
 .slash_found:
+
     inc rcx
 
     lea rdi, [rel current_source_dir]
+
     lea rsi, [rel path_buffer]
 
     rep movsb
@@ -378,19 +520,30 @@ lexer_update_current_dir:
 
     ret
 
+
 .no_dir:
+
     lea r11, [rel current_source_dir]
+
     mov byte [r11], '.'
     mov byte [r11 + 1], 0
 
     ret
 
 
-lexer_next_token:
-.skip_whitespace:
-    mov rcx, [rel src_ptr]
+; ============================================================
+; NEXT TOKEN
+; ============================================================
 
-    cmp rcx, [rel src_end]
+lexer_next_token:
+
+
+.skip_whitespace:
+
+    mov rcx, [rel source_ptr]
+
+    cmp rcx, [rel source_end]
+
     jae .source_eof
 
     movzx eax, byte [rcx]
@@ -461,7 +614,9 @@ lexer_next_token:
     cmp al, '9'
     jbe .number
 
+
 .identifier_check:
+
     cmp al, '_'
     je .identifier
 
@@ -479,35 +634,45 @@ lexer_next_token:
 
     jmp .unknown
 
+
 .unknown:
+
     mov rax, TOK_UNKNOWN
 
-    inc qword [rel src_ptr]
+    inc qword [rel source_ptr]
     inc qword [rel col_number]
 
     ret
 
+
 .skip:
-    inc qword [rel src_ptr]
+
+    inc qword [rel source_ptr]
     inc qword [rel col_number]
 
     jmp .skip_whitespace
 
+
 .newline:
-    inc qword [rel src_ptr]
+
+    inc qword [rel source_ptr]
 
     mov qword [rel col_number], 1
+
     inc qword [rel line_number]
 
     mov rax, TOK_NEWLINE
 
     ret
 
+
 .single:
-    inc qword [rel src_ptr]
+
+    inc qword [rel source_ptr]
     inc qword [rel col_number]
 
     ret
+
 
 .lbrace:
     mov rax, TOK_LBRACE
@@ -545,150 +710,237 @@ lexer_next_token:
     mov rax, TOK_STAR
     jmp .single
 
+
+; ============================================================
+; EQUAL
+; ============================================================
+
 .equal:
+
     lea rdx, [rcx + 1]
 
-    cmp rdx, [rel src_end]
+    cmp rdx, [rel source_end]
+
     jae .equal_one
 
     cmp byte [rdx], '='
+
     je .eqeq
 
+
 .equal_one:
+
     mov rax, TOK_EQUAL
+
     jmp .single
 
+
 .eqeq:
-    add qword [rel src_ptr], 2
+
+    add qword [rel source_ptr], 2
+
     add qword [rel col_number], 2
 
     mov rax, TOK_EQEQ
 
     ret
 
+
+; ============================================================
+; MINUS / ARROW
+; ============================================================
+
 .minus:
+
     lea rdx, [rcx + 1]
 
-    cmp rdx, [rel src_end]
+    cmp rdx, [rel source_end]
+
     jae .minus_one
 
     cmp byte [rdx], '>'
+
     je .arrow
 
+
 .minus_one:
+
     mov rax, TOK_MINUS
+
     jmp .single
 
+
 .arrow:
-    add qword [rel src_ptr], 2
+
+    add qword [rel source_ptr], 2
+
     add qword [rel col_number], 2
 
     mov rax, TOK_ARROW
 
     ret
 
+
+; ============================================================
+; LESS
+; ============================================================
+
 .less:
+
     lea rdx, [rcx + 1]
 
-    cmp rdx, [rel src_end]
+    cmp rdx, [rel source_end]
+
     jae .less_one
 
     cmp byte [rdx], '='
+
     je .lte
 
+
 .less_one:
+
     mov rax, TOK_LT
+
     jmp .single
 
+
 .lte:
-    add qword [rel src_ptr], 2
+
+    add qword [rel source_ptr], 2
+
     add qword [rel col_number], 2
 
     mov rax, TOK_LTE
 
     ret
 
+
+; ============================================================
+; GREATER
+; ============================================================
+
 .greater:
+
     lea rdx, [rcx + 1]
 
-    cmp rdx, [rel src_end]
+    cmp rdx, [rel source_end]
+
     jae .greater_one
 
     cmp byte [rdx], '='
+
     je .gte
 
+
 .greater_one:
+
     mov rax, TOK_GT
+
     jmp .single
 
+
 .gte:
-    add qword [rel src_ptr], 2
+
+    add qword [rel source_ptr], 2
+
     add qword [rel col_number], 2
 
     mov rax, TOK_GTE
 
     ret
 
+
+; ============================================================
+; SLASH / COMMENT
+; ============================================================
+
 .slash:
+
     lea rdx, [rcx + 1]
 
-    cmp rdx, [rel src_end]
+    cmp rdx, [rel source_end]
+
     jae .slash_one
 
     cmp byte [rdx], '/'
+
     je .comment
 
+
 .slash_one:
+
     mov rax, TOK_SLASH
+
     jmp .single
 
+
 .comment:
-    add qword [rel src_ptr], 2
+
+    add qword [rel source_ptr], 2
+
     add qword [rel col_number], 2
 
-.comment_loop:
-    mov rcx, [rel src_ptr]
 
-    cmp rcx, [rel src_end]
+.comment_loop:
+
+    mov rcx, [rel source_ptr]
+
+    cmp rcx, [rel source_end]
+
     jae .source_eof
 
     cmp byte [rcx], 10
+
     je .skip_whitespace
 
-    inc qword [rel src_ptr]
+    inc qword [rel source_ptr]
+
     inc qword [rel col_number]
 
     jmp .comment_loop
 
+
+; ============================================================
+; CHAR
+; ============================================================
+
 .char:
-    inc qword [rel src_ptr]
+
+    inc qword [rel source_ptr]
+
     inc qword [rel col_number]
 
-    mov rcx, [rel src_ptr]
+    mov rcx, [rel source_ptr]
 
-    cmp rcx, [rel src_end]
+    cmp rcx, [rel source_end]
+
     jae .char_error
 
     movzx eax, byte [rcx]
 
     cmp al, '\'
+
     je .char_escape
 
     mov [rel token_value], rax
     mov [rel current_number], rax
 
-    inc qword [rel src_ptr]
+    inc qword [rel source_ptr]
     inc qword [rel col_number]
 
     jmp .char_close
 
+
 .char_escape:
-    inc qword [rel src_ptr]
+
+    inc qword [rel source_ptr]
     inc qword [rel col_number]
 
-    mov rcx, [rel src_ptr]
+    mov rcx, [rel source_ptr]
 
-    cmp rcx, [rel src_end]
+    cmp rcx, [rel source_end]
+
     jae .char_error
 
     movzx eax, byte [rcx]
@@ -713,67 +965,104 @@ lexer_next_token:
 
     jmp .char_escape_done
 
+
 .char_n:
+
     mov eax, 10
+
     jmp .char_escape_done
+
 
 .char_t:
+
     mov eax, 9
+
     jmp .char_escape_done
+
 
 .char_r:
+
     mov eax, 13
+
     jmp .char_escape_done
+
 
 .char_zero:
+
     xor eax, eax
+
     jmp .char_escape_done
+
 
 .char_backslash:
+
     mov eax, 92
+
     jmp .char_escape_done
 
+
 .char_quote:
+
     mov eax, "'"
 
+
 .char_escape_done:
+
     mov [rel token_value], rax
     mov [rel current_number], rax
 
-    inc qword [rel src_ptr]
+    inc qword [rel source_ptr]
+
     inc qword [rel col_number]
 
-.char_close:
-    mov rcx, [rel src_ptr]
 
-    cmp rcx, [rel src_end]
+.char_close:
+
+    mov rcx, [rel source_ptr]
+
+    cmp rcx, [rel source_end]
+
     jae .char_error
 
     cmp byte [rcx], "'"
+
     jne .char_error
 
-    inc qword [rel src_ptr]
+    inc qword [rel source_ptr]
+
     inc qword [rel col_number]
 
     mov rax, TOK_CHAR
 
     ret
 
+
 .char_error:
+
     mov rax, TOK_UNKNOWN
 
     ret
 
+
+; ============================================================
+; STRING
+; ============================================================
+
 .string:
-    inc qword [rel src_ptr]
+
+    inc qword [rel source_ptr]
+
     inc qword [rel col_number]
 
-    mov rsi, [rel src_ptr]
+    mov rsi, [rel source_ptr]
+
 
 .string_loop:
-    mov rcx, [rel src_ptr]
 
-    cmp rcx, [rel src_end]
+    mov rcx, [rel source_ptr]
+
+    cmp rcx, [rel source_end]
+
     jae .string_error
 
     movzx eax, byte [rcx]
@@ -787,27 +1076,33 @@ lexer_next_token:
     cmp al, '\'
     je .string_escape
 
-    inc qword [rel src_ptr]
+    inc qword [rel source_ptr]
     inc qword [rel col_number]
 
     jmp .string_loop
+
 
 .string_escape:
-    inc qword [rel src_ptr]
+
+    inc qword [rel source_ptr]
     inc qword [rel col_number]
 
-    mov rcx, [rel src_ptr]
+    mov rcx, [rel source_ptr]
 
-    cmp rcx, [rel src_end]
+    cmp rcx, [rel source_end]
+
     jae .string_error
 
-    inc qword [rel src_ptr]
+    inc qword [rel source_ptr]
     inc qword [rel col_number]
 
     jmp .string_loop
 
+
 .string_done:
-    mov rcx, [rel src_ptr]
+
+    mov rcx, [rel source_ptr]
+
     sub rcx, rsi
 
     mov [rel string_ptr], rsi
@@ -816,25 +1111,42 @@ lexer_next_token:
     mov [rel ident_ptr], rsi
     mov [rel ident_len], rcx
 
-    inc qword [rel src_ptr]
+    inc qword [rel source_ptr]
     inc qword [rel col_number]
 
     mov rax, TOK_STRING
 
     ret
 
+
 .string_error:
+
     mov rax, TOK_UNKNOWN
 
     ret
 
+
+; ============================================================
+; NUMBER
+;
+; THIS IS IMPORTANT:
+;
+; rep 100
+;
+; current_number becomes 100, not 1.
+; ============================================================
+
 .number:
+
     xor r8, r8
 
-.number_loop:
-    mov rcx, [rel src_ptr]
 
-    cmp rcx, [rel src_end]
+.number_loop:
+
+    mov rcx, [rel source_ptr]
+
+    cmp rcx, [rel source_end]
+
     jae .number_done
 
     movzx eax, byte [rcx]
@@ -848,28 +1160,42 @@ lexer_next_token:
     sub eax, '0'
 
     imul r8, r8, 10
+
     add r8, rax
 
-    inc qword [rel src_ptr]
+    inc qword [rel source_ptr]
+
     inc qword [rel col_number]
 
     jmp .number_loop
 
+
 .number_done:
+
     mov [rel token_value], r8
+
     mov [rel current_number], r8
 
     mov rax, TOK_NUMBER
 
     ret
 
+
+; ============================================================
+; IDENTIFIER
+; ============================================================
+
 .identifier:
-    mov rsi, [rel src_ptr]
+
+    mov rsi, [rel source_ptr]
+
 
 .ident_loop:
-    mov rcx, [rel src_ptr]
 
-    cmp rcx, [rel src_end]
+    mov rcx, [rel source_ptr]
+
+    cmp rcx, [rel source_end]
+
     jae .ident_done
 
     movzx eax, byte [rcx]
@@ -883,32 +1209,44 @@ lexer_next_token:
     cmp al, '9'
     jbe .ident_next
 
+
 .ident_alpha:
+
     cmp al, 'A'
     jb .ident_lower
 
     cmp al, 'Z'
     jbe .ident_next
 
+
 .ident_lower:
+
     cmp al, 'a'
     jb .ident_done
 
     cmp al, 'z'
     ja .ident_done
 
+
 .ident_next:
-    inc qword [rel src_ptr]
+
+    inc qword [rel source_ptr]
+
     inc qword [rel col_number]
 
     jmp .ident_loop
 
+
 .ident_done:
-    mov rcx, [rel src_ptr]
+
+    mov rcx, [rel source_ptr]
+
     sub rcx, rsi
 
     mov [rel ident_ptr], rsi
+
     mov [rel ident_len], rcx
+
 
     cmp rcx, 2
     je .keyword_2
@@ -926,7 +1264,13 @@ lexer_next_token:
 
     ret
 
+
+; ============================================================
+; KEYWORD 2
+; ============================================================
+
 .keyword_2:
+
     cmp byte [rsi], 'i'
     jne .ident_return
 
@@ -937,232 +1281,366 @@ lexer_next_token:
 
     ret
 
+
+; ============================================================
+; KEYWORD 3
+; ============================================================
+
 .keyword_3:
+
     cmp byte [rsi], 'r'
-    je .check_r_words
+    je .r_word
+
     cmp byte [rsi], 'u'
-    je .check_use
+    je .use
+
     cmp byte [rsi], 'c'
-    je .check_chr
+    je .chr
+
     jmp .ident_return
 
-.check_r_words:
+
+.r_word:
+
     cmp byte [rsi + 1], 'e'
     jne .ident_return
+
     cmp byte [rsi + 2], 'p'
-    je .return_rep
+    je .rep
+
     cmp byte [rsi + 2], 't'
-    je .return_ret
+    je .ret
+
     jmp .ident_return
 
-.check_use:
+
+.rep:
+
+    mov rax, TOK_REP
+
+    ret
+
+
+.ret:
+
+    mov rax, TOK_RET
+
+    ret
+
+
+.use:
+
     cmp byte [rsi + 1], 's'
     jne .ident_return
+
     cmp byte [rsi + 2], 'e'
     jne .ident_return
+
     mov rax, TOK_USE
+
     ret
 
-.check_chr:
+
+.chr:
+
     cmp byte [rsi + 1], 'h'
     jne .ident_return
+
     cmp byte [rsi + 2], 'r'
     jne .ident_return
+
     mov rax, TOK_CHR
+
     ret
 
-.return_rep:
-    mov rax, TOK_REP
-    ret
 
-.return_ret:
-    mov rax, TOK_RET
-    ret
+; ============================================================
+; KEYWORD 4
+; ============================================================
 
 .keyword_4:
+
     cmp byte [rsi], 'e'
-    je .check_else
+    je .else
+
     cmp byte [rsi], 'i'
-    je .check_int8
+    je .int8
+
     cmp byte [rsi], 'n'
-    je .check_n_words
+    je .nat8
+
     cmp byte [rsi], 'N'
-    je .check_N_words
+    je .null_upper
+
 %ifdef TOK_BOOL
+
     cmp byte [rsi], 'b'
-    je .check_bool
+    je .bool
+
 %endif
+
     jmp .ident_return
 
-.check_n_words:
-    cmp byte [rsi + 1], 'a'
-    je .check_nat8
-    cmp byte [rsi + 1], 'u'
-    je .check_null_lower
-    jmp .ident_return
 
-.check_N_words:
-    cmp byte [rsi + 1], 'U'
-    jne .ident_return
-    cmp byte [rsi + 2], 'L'
-    jne .ident_return
-    cmp byte [rsi + 3], 'L'
-    jne .ident_return
-    mov rax, TOK_NULL
-    ret
+.else:
 
-.check_null_lower:
-    cmp byte [rsi + 2], 'l'
-    jne .ident_return
-    cmp byte [rsi + 3], 'l'
-    jne .ident_return
-    mov rax, TOK_NULL
-    ret
-
-.check_else:
     cmp byte [rsi + 1], 'l'
     jne .ident_return
+
     cmp byte [rsi + 2], 's'
     jne .ident_return
+
     cmp byte [rsi + 3], 'e'
     jne .ident_return
+
     mov rax, TOK_ELSE
+
     ret
 
-.check_int8:
+
+.int8:
+
     cmp byte [rsi + 1], 'n'
     jne .ident_return
+
     cmp byte [rsi + 2], 't'
     jne .ident_return
+
     cmp byte [rsi + 3], '8'
     jne .ident_return
+
     mov rax, TOK_INT8
+
     ret
 
-.check_nat8:
-    cmp byte [rsi + 2], 't'
-    jne .ident_return
-    cmp byte [rsi + 3], '8'
-    jne .ident_return
-    mov rax, TOK_NAT8
-    ret
 
-%ifdef TOK_BOOL
-.check_bool:
-    cmp byte [rsi + 1], 'o'
-    jne .ident_return
-    cmp byte [rsi + 2], 'o'
-    jne .ident_return
-    cmp byte [rsi + 3], 'l'
-    jne .ident_return
-    mov rax, TOK_BOOL
-    ret
-%endif
+.nat8:
 
-.keyword_5:
-    cmp byte [rsi], 'i'
-    je .check_int
-    cmp byte [rsi], 'n'
-    je .check_nat
-    jmp .ident_return
-
-.check_int:
-    cmp byte [rsi + 1], 'n'
-    jne .ident_return
-    cmp byte [rsi + 2], 't'
-    jne .ident_return
-    cmp byte [rsi + 3], '1'
-    je .int16
-    cmp byte [rsi + 3], '3'
-    je .int32
-    cmp byte [rsi + 3], '6'
-    je .int64
-    jmp .ident_return
-
-.int16:
-    cmp byte [rsi + 4], '6'
-    jne .ident_return
-    mov rax, TOK_INT16
-    ret
-
-.int32:
-    cmp byte [rsi + 4], '2'
-    jne .ident_return
-    mov rax, TOK_INT32
-    ret
-
-.int64:
-    cmp byte [rsi + 4], '4'
-    jne .ident_return
-    mov rax, TOK_INT64
-    ret
-
-.check_nat:
     cmp byte [rsi + 1], 'a'
     jne .ident_return
+
     cmp byte [rsi + 2], 't'
     jne .ident_return
-    cmp byte [rsi + 3], '1'
-    je .nat16
-    cmp byte [rsi + 3], '3'
-    je .nat32
-    cmp byte [rsi + 3], '6'
-    je .nat64
+
+    cmp byte [rsi + 3], '8'
+    jne .ident_return
+
+    mov rax, TOK_NAT8
+
+    ret
+
+
+.null_upper:
+
+    cmp byte [rsi + 1], 'U'
+    jne .ident_return
+
+    cmp byte [rsi + 2], 'L'
+    jne .ident_return
+
+    cmp byte [rsi + 3], 'L'
+    jne .ident_return
+
+    mov rax, TOK_NULL
+
+    ret
+
+
+%ifdef TOK_BOOL
+
+.bool:
+
+    cmp byte [rsi + 1], 'o'
+    jne .ident_return
+
+    cmp byte [rsi + 2], 'o'
+    jne .ident_return
+
+    cmp byte [rsi + 3], 'l'
+    jne .ident_return
+
+    mov rax, TOK_BOOL
+
+    ret
+
+%endif
+
+
+; ============================================================
+; KEYWORD 5
+; ============================================================
+
+.keyword_5:
+
+    cmp byte [rsi], 'i'
+    je .int
+
+    cmp byte [rsi], 'n'
+    je .nat
+
     jmp .ident_return
 
-.nat16:
+
+.int:
+
+    cmp byte [rsi + 1], 'n'
+    jne .ident_return
+
+    cmp byte [rsi + 2], 't'
+    jne .ident_return
+
+    cmp byte [rsi + 3], '1'
+    je .int16
+
+    cmp byte [rsi + 3], '3'
+    je .int32
+
+    cmp byte [rsi + 3], '6'
+    je .int64
+
+    jmp .ident_return
+
+
+.int16:
+
     cmp byte [rsi + 4], '6'
     jne .ident_return
-    mov rax, TOK_NAT16
+
+    mov rax, TOK_INT16
+
     ret
 
-.nat32:
+
+.int32:
+
     cmp byte [rsi + 4], '2'
     jne .ident_return
-    mov rax, TOK_NAT32
+
+    mov rax, TOK_INT32
+
     ret
 
-.nat64:
+
+.int64:
+
     cmp byte [rsi + 4], '4'
     jne .ident_return
-    mov rax, TOK_NAT64
+
+    mov rax, TOK_INT64
+
     ret
+
+
+.nat:
+
+    cmp byte [rsi + 1], 'a'
+    jne .ident_return
+
+    cmp byte [rsi + 2], 't'
+    jne .ident_return
+
+    cmp byte [rsi + 3], '1'
+    je .nat16
+
+    cmp byte [rsi + 3], '3'
+    je .nat32
+
+    cmp byte [rsi + 3], '6'
+    je .nat64
+
+    jmp .ident_return
+
+
+.nat16:
+
+    cmp byte [rsi + 4], '6'
+    jne .ident_return
+
+    mov rax, TOK_NAT16
+
+    ret
+
+
+.nat32:
+
+    cmp byte [rsi + 4], '2'
+    jne .ident_return
+
+    mov rax, TOK_NAT32
+
+    ret
+
+
+.nat64:
+
+    cmp byte [rsi + 4], '4'
+    jne .ident_return
+
+    mov rax, TOK_NAT64
+
+    ret
+
 
 .ident_return:
+
     mov rax, TOK_IDENT
+
     ret
 
+
+; ============================================================
+; EOF
+; ============================================================
+
 .source_eof:
+
     mov rax, [rel source_depth]
 
     test rax, rax
+
     jz .final_eof
 
     dec rax
 
     mov rbx, rax
 
+
     lea r11, [rel source_ptr_stack]
+
     mov rax, [r11 + rbx * 8]
-    mov [rel src_ptr], rax
+
+    mov [rel source_ptr], rax
+
 
     lea r11, [rel source_end_stack]
+
     mov rax, [r11 + rbx * 8]
-    mov [rel src_end], rax
+
+    mov [rel source_end], rax
+
 
     lea r11, [rel source_line_stack]
+
     mov rax, [r11 + rbx * 8]
+
     mov [rel line_number], rax
 
+
     lea r11, [rel source_col_stack]
+
     mov rax, [r11 + rbx * 8]
+
     mov [rel col_number], rax
 
+
     mov rcx, rbx
+
     imul rcx, PATH_BUFFER_SIZE
 
     lea rsi, [rel source_dir_stack]
+
     add rsi, rcx
+
     lea rdi, [rel current_source_dir]
 
     call lexer_copy_string
@@ -1171,7 +1649,9 @@ lexer_next_token:
 
     jmp .skip_whitespace
 
+
 .final_eof:
+
     mov rax, TOK_EOF
 
     ret

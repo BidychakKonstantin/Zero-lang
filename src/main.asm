@@ -1,6 +1,6 @@
-%include "src/include/host_sys.inc"
-
 default rel
+
+%include "src/include/tokens.inc"
 
 global _start
 
@@ -8,203 +8,212 @@ extern lexer_init
 extern lexer_set_source_dir
 extern parser_parse
 
-%define FILE_BUFFER_SIZE 65536
-%define PATH_BUFFER_SIZE 4096
 
-section .bss
+%define SYS_READ       0
+%define SYS_WRITE      1
+%define SYS_OPENAT     257
+%define SYS_CLOSE      3
+%define SYS_EXIT       60
 
-file_buffer:
-resb FILE_BUFFER_SIZE
+%define AT_FDCWD       -100
+%define O_RDONLY       0
 
-source_dir:
-resb PATH_BUFFER_SIZE
+%define SOURCE_BUFFER_SIZE (4 * 1024 * 1024)
+
 
 section .rodata
 
-err_no_arg:
-db "Error: Please specify .zr file", 10
-err_no_arg_len equ $ - err_no_arg
+msg_no_file:
+    db "Usage: zero <source.zr>", 10
+msg_no_file_len equ $ - msg_no_file
 
-err_path:
-db "Error: Input path is too long", 10
-err_path_len equ $ - err_path
+msg_open_error:
+    db "Error: cannot open source file", 10
+msg_open_error_len equ $ - msg_open_error
 
-err_open:
-db "Error: Could not open file", 10
-err_open_len equ $ - err_open
+msg_read_error:
+    db "Error: cannot read source file", 10
+msg_read_error_len equ $ - msg_read_error
 
-err_read:
-db "Error: Could not read file", 10
-err_read_len equ $ - err_read
 
-err_dir:
-db "Error: Could not set source directory", 10
-err_dir_len equ $ - err_dir
+section .bss
+
+align 16
+
+source_buffer:
+    resb SOURCE_BUFFER_SIZE
+
 
 section .text
 
 _start:
-    mov rax, [rsp]
-    cmp rax, 2
-    jl .no_arg
 
+    ; argc
+    mov rax, [rsp]
+
+    ; Need argv[1]
+    cmp rax, 2
+    jb .no_file
+
+
+    ; argv[1]
     mov r12, [rsp + 16]
 
-    xor rcx, rcx
 
-.path_len:
-    cmp byte [r12 + rcx], 0
-    je .path_len_done
-    inc rcx
-    cmp rcx, PATH_BUFFER_SIZE - 1
-    jb .path_len
-    jmp .path_error
+    ; ========================================================
+    ; OPEN
+    ; ========================================================
 
-.path_len_done:
-    mov r13, rcx
-
-    test r13, r13
-    jz .path_error
-
-    lea rdi, [rel source_dir]
-
-    xor r14d, r14d
-    mov r14, r13
-
-.find_slash:
-    test r14, r14
-    jz .no_slash
-    dec r14
-    cmp byte [r12 + r14], '/'
-    jne .find_slash
-
-    test r14, r14
-    jnz .copy_dir
-
-    mov byte [rdi], '/'
-    mov byte [rdi + 1], 0
-    jmp .open_file
-
-.no_slash:
-    mov byte [rdi], '.'
-    mov byte [rdi + 1], 0
-    jmp .open_file
-
-.copy_dir:
-    mov rcx, r14
+    mov eax, SYS_OPENAT
+    mov edi, AT_FDCWD
     mov rsi, r12
-    rep movsb
-    mov byte [rdi], 0
-
-.open_file:
-    mov rdi, r12
-    mov eax, HOST_SYS_OPEN
-    mov esi, HOST_O_RDONLY
-    xor edx, edx
+    mov edx, O_RDONLY
+    xor r10d, r10d
     syscall
 
     test rax, rax
     js .open_error
 
-    mov r15, rax
+    mov r13, rax
 
-    mov rdi, r15
-    lea rsi, [rel file_buffer]
-    mov edx, FILE_BUFFER_SIZE
-    mov eax, HOST_SYS_READ
+
+    ; ========================================================
+    ; READ
+    ; ========================================================
+
+    mov eax, SYS_READ
+    mov rdi, r13
+    lea rsi, [rel source_buffer]
+    mov edx, SOURCE_BUFFER_SIZE
     syscall
 
     test rax, rax
     js .read_error
 
-    mov r13, rax
+    mov r14, rax
 
-    mov rdi, r15
-    mov eax, HOST_SYS_CLOSE
+
+    ; ========================================================
+    ; CLOSE
+    ; ========================================================
+
+    mov eax, SYS_CLOSE
+    mov rdi, r13
     syscall
 
-    lea rdi, [rel file_buffer]
-    mov rsi, r13
-    call lexer_init
 
-    lea rdi, [rel source_dir]
+    ; ========================================================
+    ; FIND DIRECTORY LENGTH
+    ;
+    ; Walk the path and remember the index right AFTER the
+    ; last '/' found. That is the length of the directory
+    ; part (including trailing slash). If no '/' is found,
+    ; r15 stays 0, meaning "no directory" (use cwd).
+    ; ========================================================
 
+    mov rsi, r12
     xor rcx, rcx
+    xor r15, r15
 
-.source_dir_len:
-    cmp byte [rdi + rcx], 0
-    je .source_dir_len_done
+.find_path_end:
+
+    cmp byte [rsi + rcx], 0
+    je .path_end
+
+    cmp byte [rsi + rcx], '/'
+    jne .find_path_next
+
+    lea r8, [rcx + 1]
+    mov r15, r8
+
+.find_path_next:
+
     inc rcx
-    jmp .source_dir_len
+    jmp .find_path_end
 
-.source_dir_len_done:
-    mov rsi, rcx
+
+.path_end:
+
+    ; ========================================================
+    ; SET CURRENT SOURCE DIRECTORY
+    ;
+    ; RDI = path
+    ; RSI = directory length (excludes filename)
+    ; ========================================================
+
+    mov rdi, r12
+    mov rsi, r15
+
     call lexer_set_source_dir
 
-    test rax, rax
-    js .dir_error
+
+    ; ========================================================
+    ; INIT LEXER
+    ;
+    ; RDI = source buffer
+    ; RSI = source length
+    ; ========================================================
+
+    lea rdi, [rel source_buffer]
+    mov rsi, r14
+
+    call lexer_init
+
+
+    ; ========================================================
+    ; PARSE
+    ; ========================================================
 
     call parser_parse
 
-    mov eax, HOST_SYS_EXIT
+
+    ; ========================================================
+    ; EXIT 0
+    ; ========================================================
+
+    mov eax, SYS_EXIT
     xor edi, edi
     syscall
 
-.no_arg:
-    mov eax, HOST_SYS_WRITE
-    mov edi, HOST_STDERR
-    lea rsi, [rel err_no_arg]
-    mov edx, err_no_arg_len
+
+.no_file:
+
+    mov eax, SYS_WRITE
+    mov edi, 2
+    lea rsi, [rel msg_no_file]
+    mov edx, msg_no_file_len
     syscall
 
-    mov eax, HOST_SYS_EXIT
+    mov eax, SYS_EXIT
     mov edi, 1
     syscall
 
-.path_error:
-    mov eax, HOST_SYS_WRITE
-    mov edi, HOST_STDERR
-    lea rsi, [rel err_path]
-    mov edx, err_path_len
-    syscall
-
-    mov eax, HOST_SYS_EXIT
-    mov edi, 1
-    syscall
 
 .open_error:
-    mov eax, HOST_SYS_WRITE
-    mov edi, HOST_STDERR
-    lea rsi, [rel err_open]
-    mov edx, err_open_len
+
+    mov eax, SYS_WRITE
+    mov edi, 2
+    lea rsi, [rel msg_open_error]
+    mov edx, msg_open_error_len
     syscall
 
-    mov eax, HOST_SYS_EXIT
+    mov eax, SYS_EXIT
     mov edi, 1
     syscall
+
 
 .read_error:
-    mov rdi, r15
-    mov eax, HOST_SYS_CLOSE
+
+    mov eax, SYS_CLOSE
+    mov rdi, r13
     syscall
 
-    mov eax, HOST_SYS_WRITE
-    mov edi, HOST_STDERR
-    lea rsi, [rel err_read]
-    mov edx, err_read_len
+    mov eax, SYS_WRITE
+    mov edi, 2
+    lea rsi, [rel msg_read_error]
+    mov edx, msg_read_error_len
     syscall
 
-    mov eax, HOST_SYS_EXIT
-    mov edi, 1
-    syscall
-
-.dir_error:
-    mov eax, HOST_SYS_WRITE
-    mov edi, HOST_STDERR
-    lea rsi, [rel err_dir]
-    mov edx, err_dir_len
-    syscall
-
-    mov eax, HOST_SYS_EXIT
+    mov eax, SYS_EXIT
     mov edi, 1
     syscall
