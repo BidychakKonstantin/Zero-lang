@@ -1,0 +1,8 @@
+is_digit(nat8 c) -> nat8 {
+    if (c >= '0') {
+        if (c <= '9') {
+            ret 1
+        }
+    }
+    ret 0
+}

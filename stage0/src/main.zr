@@ -1,5 +1,5 @@
 use "tokens.zr"
-
+use "std.zr"
 use "lexer.zr"
 
 add(nat64 a, nat64 b) -> nat64 {
@@ -7,7 +7,6 @@ add(nat64 a, nat64 b) -> nat64 {
 }
 
 main() {
-    nat8 xa = TOK_EOF
     chr* str = NULL
     nat16 a = 0
     nat8 bc = is_end()

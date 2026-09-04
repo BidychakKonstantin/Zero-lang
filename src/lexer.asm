@@ -31,6 +31,7 @@ global source_end
 %define O_RDONLY 0
 
 %define MAX_SOURCE_DEPTH 32
+%define MAX_SOURCE_FILES 128
 %define SOURCE_BUFFER_SIZE 65536
 %define PATH_BUFFER_SIZE 4096
 
@@ -70,6 +71,32 @@ string_len:
 source_depth:
     resq 1
 
+; Монотонний лічильник УСІХ коли-небудь відкритих файлів
+; (на відміну від source_depth, який означає лише поточну
+; глибину вкладеності і повертається до 0 після кожного EOF).
+; Слот буфера в source_buffers обирається саме за цим
+; лічильником, щоб два "use" на однаковій глибині ніколи не
+; ділили одну й ту саму пам'ять (раніше через це перезаписувались
+; байти, на які вже вказували імена символів з попереднього
+; файлу — напр. TOK_EOF ставало "Undefined identifier").
+source_file_count:
+    resq 1
+
+; Список повністю резолвлених шляхів усіх файлів, які вже РЕАЛЬНО
+; підключались через use. Потрібен, щоб use був ідемпотентним
+; (як #pragma once) — інакше той самий файл, підключений двічі
+; різними use-ланцюжками (напр. напряму з main.zr і повторно
+; зсередини lexer.zr), парситься і генерує код ДВІЧІ, і nasm
+; падає на "label inconsistently redefined".
+used_paths:
+    resb MAX_SOURCE_FILES * PATH_BUFFER_SIZE
+
+used_path_lens:
+    resq MAX_SOURCE_FILES
+
+used_path_count:
+    resq 1
+
 source_ptr_stack:
     resq MAX_SOURCE_DEPTH
 
@@ -91,8 +118,11 @@ current_source_dir:
 path_buffer:
     resb PATH_BUFFER_SIZE
 
+; Розмір пулу буферів тепер прив'язаний до MAX_SOURCE_FILES
+; (загальна кількість файлів за весь запуск), а не до
+; MAX_SOURCE_DEPTH (глибина вкладеності use).
 source_buffers:
-    resb MAX_SOURCE_DEPTH * SOURCE_BUFFER_SIZE
+    resb MAX_SOURCE_FILES * SOURCE_BUFFER_SIZE
 
 
 section .text
@@ -105,6 +135,8 @@ section .text
 lexer_init:
 
     mov qword [rel source_depth], 0
+    mov qword [rel source_file_count], 0
+    mov qword [rel used_path_count], 0
 
     mov qword [rel line_number], 1
     mov qword [rel col_number], 1
@@ -218,6 +250,15 @@ lexer_use_file:
     cmp rax, MAX_SOURCE_DEPTH
     jae .fail
 
+    ; Окрема перевірка: загальна кількість файлів не може
+    ; перевищити розмір пулу буферів.
+    mov rax, [rel source_file_count]
+
+    cmp rax, MAX_SOURCE_FILES
+    jae .fail
+
+    mov rax, [rel source_depth]
+
     mov rbx, rax
 
 
@@ -324,6 +365,150 @@ lexer_use_file:
 
 .open:
 
+    ; --------------------------------------------------------
+    ; DEDUP CHECK (use = #pragma once)
+    ;
+    ; path_buffer тут уже містить повний резолвлений шлях,
+    ; незалежно від того, якою гілкою (.absolute чи relative)
+    ; ми сюди прийшли. Якщо такий шлях вже підключався раніше —
+    ; повертаємось успішно БЕЗ відкриття файлу і БЕЗ перемикання
+    ; джерела: виклик use просто "нічого не робить", і парсер
+    ; продовжує з того самого місця поточного файлу.
+    ;
+    ; Використовує r8, r9, r10, r11, rax, rcx, rdx, rsi, rdi —
+    ; жодного з них далі (rbx/r12..r15) це не чіпає.
+    ; --------------------------------------------------------
+
+    lea rsi, [rel path_buffer]
+
+    xor rcx, rcx
+
+.dedup_len:
+
+    cmp byte [rsi + rcx], 0
+
+    je .dedup_len_done
+
+    inc rcx
+
+    jmp .dedup_len
+
+
+.dedup_len_done:
+
+    mov r9, rcx                  ; r9 = довжина шляху
+
+    xor r8, r8                   ; r8 = індекс перевірки
+
+
+.dedup_loop:
+
+    mov rax, [rel used_path_count]
+
+    cmp r8, rax
+
+    jae .dedup_not_found
+
+
+    lea r10, [rel used_path_lens]
+
+    mov r11, [r10 + r8 * 8]
+
+    cmp r11, r9
+
+    jne .dedup_next
+
+
+    mov rax, r8
+
+    imul rax, PATH_BUFFER_SIZE
+
+    lea rdx, [rel used_paths]
+
+    add rdx, rax
+
+    lea rsi, [rel path_buffer]
+
+    mov rcx, r9
+
+
+.dedup_cmp:
+
+    test rcx, rcx
+
+    jz .dedup_found
+
+    mov al, [rsi]
+
+    cmp al, [rdx]
+
+    jne .dedup_next
+
+    inc rsi
+    inc rdx
+    dec rcx
+
+    jmp .dedup_cmp
+
+
+.dedup_next:
+
+    inc r8
+
+    jmp .dedup_loop
+
+
+.dedup_found:
+
+    ; Файл уже підключено раніше — пропустити, успіх без відкриття.
+    xor eax, eax
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+
+    ret
+
+
+.dedup_not_found:
+
+    ; Новий файл — запам'ятати його шлях для майбутніх перевірок.
+    mov rax, [rel used_path_count]
+
+    cmp rax, MAX_SOURCE_FILES
+
+    jae .dedup_record_done       ; таблиця повна: не запам'ятовуємо, але відкриваємо як завжди
+
+
+    mov r10, rax
+
+    lea r11, [rel used_path_lens]
+
+    mov [r11 + r10 * 8], r9
+
+
+    imul rax, PATH_BUFFER_SIZE
+
+    lea rdi, [rel used_paths]
+
+    add rdi, rax
+
+    lea rsi, [rel path_buffer]
+
+    mov rcx, r9
+
+    rep movsb
+
+    mov byte [rdi], 0
+
+
+    inc qword [rel used_path_count]
+
+
+.dedup_record_done:
+
     mov eax, SYS_OPENAT
 
     mov edi, AT_FDCWD
@@ -344,8 +529,15 @@ lexer_use_file:
 
 
     ; buffer
+    ;
+    ; КЛЮЧОВА ЗМІНА: слот обирається за source_file_count
+    ; (монотонний, унікальний для кожного відкритого файлу),
+    ; а НЕ за rbx/source_depth (яка повторюється при кількох
+    ; "use" на одному рівні вкладеності і раніше призводила до
+    ; того, що новий файл перезаписував пам'ять попереднього,
+    ; поки на неї ще були дійсні вказівники в таблиці символів).
 
-    mov rax, rbx
+    mov rax, [rel source_file_count]
 
     imul rax, SOURCE_BUFFER_SIZE
 
@@ -394,6 +586,10 @@ lexer_use_file:
     mov qword [rel col_number], 1
 
     call lexer_update_current_dir
+
+    ; Цей файл фізично використано — лічильник файлів росте
+    ; завжди, незалежно від глибини вкладеності.
+    inc qword [rel source_file_count]
 
     inc rbx
 

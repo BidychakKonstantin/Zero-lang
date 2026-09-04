@@ -41,6 +41,13 @@ extern codegen_function_end
 extern codegen_call_function
 extern codegen_return
 
+extern codegen_truncate_int8
+extern codegen_truncate_nat8
+extern codegen_truncate_int16
+extern codegen_truncate_nat16
+extern codegen_truncate_int32
+extern codegen_truncate_nat32
+
 extern codegen_load_number
 extern codegen_load_variable
 extern codegen_load_array_element
@@ -1843,10 +1850,116 @@ parser_return:
 
 .bare:
 
+    call parser_emit_return_truncation
+
     call codegen_return
 
 
     ; Leave current token untouched.
+    ret
+
+
+; ============================================================
+; RETURN TYPE TRUNCATION
+;
+; Looks at the currently-compiling function's declared return
+; type (SYM_TYPE on current_function) and, if it is one of the
+; fixed-width non-pointer types, emits the matching truncation
+; instruction so the value actually returned in RAX is cut down
+; (and sign/zero-extended back to 64 bits) to what that type can
+; hold. int64 / nat64 / an unset type / pointer types (bit 63 of
+; SYM_TYPE set) are left alone -- they already use the full
+; 64-bit width, or aren't a fixed-width value to truncate.
+; ============================================================
+
+parser_emit_return_truncation:
+
+    mov r10, [rel current_function]
+
+    test r10, r10
+    jz .no_trunc
+
+
+    mov rax, [r10 + SYM_TYPE]
+
+
+    ; Pointer return type ("chr* foo() -> ...")? Never truncate
+    ; an address.
+    bt rax, 63
+    jc .no_trunc
+
+
+    cmp rax, TOK_INT8
+    je .int8
+
+    cmp rax, TOK_NAT8
+    je .nat8
+
+    cmp rax, TOK_INT16
+    je .int16
+
+    cmp rax, TOK_NAT16
+    je .nat16
+
+    cmp rax, TOK_INT32
+    je .int32
+
+    cmp rax, TOK_NAT32
+    je .nat32
+
+    cmp rax, TOK_CHR
+    je .nat8
+
+
+    ; TOK_INT64 / TOK_NAT64 / no declared type (0) / anything
+    ; else: full 64-bit width, nothing to do.
+    jmp .no_trunc
+
+
+.int8:
+
+    call codegen_truncate_int8
+
+    ret
+
+
+.nat8:
+
+    call codegen_truncate_nat8
+
+    ret
+
+
+.int16:
+
+    call codegen_truncate_int16
+
+    ret
+
+
+.nat16:
+
+    call codegen_truncate_nat16
+
+    ret
+
+
+.int32:
+
+    call codegen_truncate_int32
+
+    ret
+
+
+.nat32:
+
+    call codegen_truncate_nat32
+
+    ret
+
+
+.no_trunc:
+
     ret
 
 

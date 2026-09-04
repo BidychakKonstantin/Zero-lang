@@ -758,6 +758,133 @@ codegen_call_function:
 
 
 ; ============================================================
+; RETURN TYPE TRUNCATION
+;
+; Called (from parser.asm) right before codegen_return, when
+; the enclosing function has an explicit non-pointer, non-64-bit
+; return type. Truncates/extends whatever is in RAX to match
+; the declared width and signedness, so a value like 256 really
+; becomes 0 when the function is declared "-> int8", instead of
+; silently passing through as a 64-bit value.
+; ============================================================
+
+global codegen_truncate_int8
+global codegen_truncate_nat8
+global codegen_truncate_int16
+global codegen_truncate_nat16
+global codegen_truncate_int32
+global codegen_truncate_nat32
+
+
+s_trunc_int8:
+    db "    movsx rax, al", 10
+s_trunc_int8_len equ $ - s_trunc_int8
+
+
+s_trunc_nat8:
+    db "    movzx rax, al", 10
+s_trunc_nat8_len equ $ - s_trunc_nat8
+
+
+s_trunc_int16:
+    db "    movsx rax, ax", 10
+s_trunc_int16_len equ $ - s_trunc_int16
+
+
+s_trunc_nat16:
+    db "    movzx rax, ax", 10
+s_trunc_nat16_len equ $ - s_trunc_nat16
+
+
+s_trunc_int32:
+    db "    cdqe", 10
+s_trunc_int32_len equ $ - s_trunc_int32
+
+
+s_trunc_nat32:
+    db "    mov eax, eax", 10
+s_trunc_nat32_len equ $ - s_trunc_nat32
+
+
+codegen_truncate_int8:
+
+    mov eax, SYS_WRITE
+    mov edi, STDOUT
+
+    lea rsi, [rel s_trunc_int8]
+    mov edx, s_trunc_int8_len
+
+    syscall
+
+    ret
+
+
+codegen_truncate_nat8:
+
+    mov eax, SYS_WRITE
+    mov edi, STDOUT
+
+    lea rsi, [rel s_trunc_nat8]
+    mov edx, s_trunc_nat8_len
+
+    syscall
+
+    ret
+
+
+codegen_truncate_int16:
+
+    mov eax, SYS_WRITE
+    mov edi, STDOUT
+
+    lea rsi, [rel s_trunc_int16]
+    mov edx, s_trunc_int16_len
+
+    syscall
+
+    ret
+
+
+codegen_truncate_nat16:
+
+    mov eax, SYS_WRITE
+    mov edi, STDOUT
+
+    lea rsi, [rel s_trunc_nat16]
+    mov edx, s_trunc_nat16_len
+
+    syscall
+
+    ret
+
+
+codegen_truncate_int32:
+
+    mov eax, SYS_WRITE
+    mov edi, STDOUT
+
+    lea rsi, [rel s_trunc_int32]
+    mov edx, s_trunc_int32_len
+
+    syscall
+
+    ret
+
+
+codegen_truncate_nat32:
+
+    mov eax, SYS_WRITE
+    mov edi, STDOUT
+
+    lea rsi, [rel s_trunc_nat32]
+    mov edx, s_trunc_nat32_len
+
+    syscall
+
+    ret
+
+
+; ============================================================
 ; RETURN
 ; ============================================================
 

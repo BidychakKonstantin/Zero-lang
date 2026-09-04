@@ -1,4 +1,5 @@
 use "tokens.zr"
+use "std.zr"
 
 nat64 token_value = 0
 chr* token_ptr   = NULL
@@ -9,7 +10,6 @@ nat16 lex_line   = 0
 nat16 lex_col    = 0
 chr* lex_end     = NULL
 
-
 lexer_init(chr* source_ptr, chr* source_end) {
     lex_current = source_ptr
     lex_end     = source_end
@@ -17,93 +17,88 @@ lexer_init(chr* source_ptr, chr* source_end) {
     lex_col     = 1
 }
 
-
 lexer_peek() -> chr {
     if lex_current >= lex_end {
         ret 0
     }
-
     ret *lex_current
 }
 
-
 advance() -> chr {
-
     if lex_current >= lex_end {
         ret 0
     }
-
     chr c = *lex_current
-
     lex_current = lex_current + 1
     lex_col = lex_col + 1
-
     ret c
 }
 
-
-is_end() -> int8 {
+is_end() -> nat8 {
     ret lex_current >= lex_end
 }
 
-
 skip_white_space() {
-
     rep true {
-
         if is_end() {
             ret 0
         }
-
         chr c = lexer_peek()
-
         if c == ' ' {
             advance()
         }
-
         if c == '\t' {
             advance()
         }
-
         if c == '\r' {
             advance()
         }
-
         if c == '\n' {
             advance()
             lex_line = lex_line + 1
             lex_col = 1
         }
-
         if c == '/' {
-
             advance()
-
             if is_end() {
                 ret 0
             }
-
             chr next_c = lexer_peek()
-
             if next_c == '/' {
-
                 rep true {
-
                     if is_end() {
                         ret 0
                     }
-
                     chr cc = lexer_peek()
-
                     if cc == '\n' {
                         ret 0
                     }
-
                     advance()
                 }
             }
         }
     }
-
     ret 0
+}
+
+lexer_next_token() -> nat8 {
+    skip_white_space()
+
+    if (is_end()) {
+        ret TOK_EOF
+    }
+
+    token_ptr = lex_current
+    chr c = advance()
+
+    if (is_digit(c)) {
+        nat64 value = c - '0'
+        rep is_digit(lexer_peek()) {
+            value = value * 10 + (advance() - '0')
+        }
+        token_value = value
+        ret TOK_NUMBER
+    }
+
+    ret TOK_UNKNOWN
 }
