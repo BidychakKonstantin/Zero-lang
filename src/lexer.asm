@@ -71,23 +71,9 @@ string_len:
 source_depth:
     resq 1
 
-; Монотонний лічильник УСІХ коли-небудь відкритих файлів
-; (на відміну від source_depth, який означає лише поточну
-; глибину вкладеності і повертається до 0 після кожного EOF).
-; Слот буфера в source_buffers обирається саме за цим
-; лічильником, щоб два "use" на однаковій глибині ніколи не
-; ділили одну й ту саму пам'ять (раніше через це перезаписувались
-; байти, на які вже вказували імена символів з попереднього
-; файлу — напр. TOK_EOF ставало "Undefined identifier").
 source_file_count:
     resq 1
 
-; Список повністю резолвлених шляхів усіх файлів, які вже РЕАЛЬНО
-; підключались через use. Потрібен, щоб use був ідемпотентним
-; (як #pragma once) — інакше той самий файл, підключений двічі
-; різними use-ланцюжками (напр. напряму з main.zr і повторно
-; зсередини lexer.zr), парситься і генерує код ДВІЧІ, і nasm
-; падає на "label inconsistently redefined".
 used_paths:
     resb MAX_SOURCE_FILES * PATH_BUFFER_SIZE
 
@@ -118,19 +104,12 @@ current_source_dir:
 path_buffer:
     resb PATH_BUFFER_SIZE
 
-; Розмір пулу буферів тепер прив'язаний до MAX_SOURCE_FILES
-; (загальна кількість файлів за весь запуск), а не до
-; MAX_SOURCE_DEPTH (глибина вкладеності use).
 source_buffers:
     resb MAX_SOURCE_FILES * SOURCE_BUFFER_SIZE
 
 
 section .text
 
-
-; ============================================================
-; INIT
-; ============================================================
 
 lexer_init:
 
@@ -161,10 +140,6 @@ lexer_init:
     ret
 
 
-; ============================================================
-; SET SOURCE DIR
-; ============================================================
-
 lexer_set_source_dir:
 
     push r12
@@ -186,7 +161,7 @@ lexer_set_source_dir:
 
     test r13, r13
 
-    jz .done            ; no directory part -> current_source_dir = "" (cwd)
+    jz .done
 
     lea r11, [rel current_source_dir]
 
@@ -224,10 +199,6 @@ lexer_set_source_dir:
     ret
 
 
-; ============================================================
-; USE FILE
-; ============================================================
-
 lexer_use_file:
 
     push rbx
@@ -250,8 +221,6 @@ lexer_use_file:
     cmp rax, MAX_SOURCE_DEPTH
     jae .fail
 
-    ; Окрема перевірка: загальна кількість файлів не може
-    ; перевищити розмір пулу буферів.
     mov rax, [rel source_file_count]
 
     cmp rax, MAX_SOURCE_FILES
@@ -262,16 +231,12 @@ lexer_use_file:
     mov rbx, rax
 
 
-    ; save source pointer
-
     lea r11, [rel source_ptr_stack]
 
     mov rax, [rel source_ptr]
 
     mov [r11 + rbx * 8], rax
 
-
-    ; save source end
 
     lea r11, [rel source_end_stack]
 
@@ -280,8 +245,6 @@ lexer_use_file:
     mov [r11 + rbx * 8], rax
 
 
-    ; save line
-
     lea r11, [rel source_line_stack]
 
     mov rax, [rel line_number]
@@ -289,16 +252,12 @@ lexer_use_file:
     mov [r11 + rbx * 8], rax
 
 
-    ; save column
-
     lea r11, [rel source_col_stack]
 
     mov rax, [rel col_number]
 
     mov [r11 + rbx * 8], rax
 
-
-    ; save current directory
 
     mov rax, rbx
 
@@ -312,8 +271,6 @@ lexer_use_file:
 
     call lexer_copy_string
 
-
-    ; relative / absolute
 
     cmp byte [r12], '/'
 
@@ -365,20 +322,6 @@ lexer_use_file:
 
 .open:
 
-    ; --------------------------------------------------------
-    ; DEDUP CHECK (use = #pragma once)
-    ;
-    ; path_buffer тут уже містить повний резолвлений шлях,
-    ; незалежно від того, якою гілкою (.absolute чи relative)
-    ; ми сюди прийшли. Якщо такий шлях вже підключався раніше —
-    ; повертаємось успішно БЕЗ відкриття файлу і БЕЗ перемикання
-    ; джерела: виклик use просто "нічого не робить", і парсер
-    ; продовжує з того самого місця поточного файлу.
-    ;
-    ; Використовує r8, r9, r10, r11, rax, rcx, rdx, rsi, rdi —
-    ; жодного з них далі (rbx/r12..r15) це не чіпає.
-    ; --------------------------------------------------------
-
     lea rsi, [rel path_buffer]
 
     xor rcx, rcx
@@ -396,9 +339,9 @@ lexer_use_file:
 
 .dedup_len_done:
 
-    mov r9, rcx                  ; r9 = довжина шляху
+    mov r9, rcx
 
-    xor r8, r8                   ; r8 = індекс перевірки
+    xor r8, r8
 
 
 .dedup_loop:
@@ -460,7 +403,6 @@ lexer_use_file:
 
 .dedup_found:
 
-    ; Файл уже підключено раніше — пропустити, успіх без відкриття.
     xor eax, eax
 
     pop r15
@@ -474,12 +416,11 @@ lexer_use_file:
 
 .dedup_not_found:
 
-    ; Новий файл — запам'ятати його шлях для майбутніх перевірок.
     mov rax, [rel used_path_count]
 
     cmp rax, MAX_SOURCE_FILES
 
-    jae .dedup_record_done       ; таблиця повна: не запам'ятовуємо, але відкриваємо як завжди
+    jae .dedup_record_done
 
 
     mov r10, rax
@@ -528,15 +469,6 @@ lexer_use_file:
     mov r15, rax
 
 
-    ; buffer
-    ;
-    ; КЛЮЧОВА ЗМІНА: слот обирається за source_file_count
-    ; (монотонний, унікальний для кожного відкритого файлу),
-    ; а НЕ за rbx/source_depth (яка повторюється при кількох
-    ; "use" на одному рівні вкладеності і раніше призводила до
-    ; того, що новий файл перезаписував пам'ять попереднього,
-    ; поки на неї ще були дійсні вказівники в таблиці символів).
-
     mov rax, [rel source_file_count]
 
     imul rax, SOURCE_BUFFER_SIZE
@@ -545,8 +477,6 @@ lexer_use_file:
 
     add r14, rax
 
-
-    ; read
 
     mov eax, SYS_READ
 
@@ -565,16 +495,12 @@ lexer_use_file:
     mov r13, rax
 
 
-    ; close
-
     mov eax, SYS_CLOSE
 
     mov rdi, r15
 
     syscall
 
-
-    ; switch source
 
     mov [rel source_ptr], r14
 
@@ -587,8 +513,6 @@ lexer_use_file:
 
     call lexer_update_current_dir
 
-    ; Цей файл фізично використано — лічильник файлів росте
-    ; завжди, незалежно від глибини вкладеності.
     inc qword [rel source_file_count]
 
     inc rbx
@@ -628,10 +552,6 @@ lexer_use_file:
     ret
 
 
-; ============================================================
-; COPY STRING
-; ============================================================
-
 lexer_copy_string:
 
 .copy:
@@ -651,10 +571,6 @@ lexer_copy_string:
 
     ret
 
-
-; ============================================================
-; UPDATE DIRECTORY
-; ============================================================
 
 lexer_update_current_dir:
 
@@ -727,10 +643,6 @@ lexer_update_current_dir:
     ret
 
 
-; ============================================================
-; NEXT TOKEN
-; ============================================================
-
 lexer_next_token:
 
 
@@ -797,6 +709,15 @@ lexer_next_token:
 
     cmp al, '>'
     je .greater
+
+    cmp al, '!'
+    je .bang
+
+    cmp al, '&'
+    je .amp
+
+    cmp al, '|'
+    je .pipe
 
     cmp al, "'"
     je .char
@@ -907,10 +828,6 @@ lexer_next_token:
     jmp .single
 
 
-; ============================================================
-; EQUAL
-; ============================================================
-
 .equal:
 
     lea rdx, [rcx + 1]
@@ -941,10 +858,6 @@ lexer_next_token:
 
     ret
 
-
-; ============================================================
-; MINUS / ARROW
-; ============================================================
 
 .minus:
 
@@ -977,10 +890,6 @@ lexer_next_token:
     ret
 
 
-; ============================================================
-; LESS
-; ============================================================
-
 .less:
 
     lea rdx, [rcx + 1]
@@ -1011,10 +920,6 @@ lexer_next_token:
 
     ret
 
-
-; ============================================================
-; GREATER
-; ============================================================
 
 .greater:
 
@@ -1047,9 +952,90 @@ lexer_next_token:
     ret
 
 
-; ============================================================
-; SLASH / COMMENT
-; ============================================================
+.bang:
+
+    lea rdx, [rcx + 1]
+
+    cmp rdx, [rel source_end]
+
+    jae .unknown
+
+    cmp byte [rdx], '='
+
+    je .noteq
+
+    jmp .unknown
+
+
+.noteq:
+
+    add qword [rel source_ptr], 2
+
+    add qword [rel col_number], 2
+
+    mov rax, TOK_NOTEQ
+
+    ret
+
+
+.amp:
+
+    lea rdx, [rcx + 1]
+
+    cmp rdx, [rel source_end]
+
+    jae .amp_single
+
+    cmp byte [rdx], '&'
+
+    je .andand
+
+    jmp .amp_single
+
+
+.amp_single:
+
+    mov rax, TOK_AMP
+
+    jmp .single
+
+
+.andand:
+
+    add qword [rel source_ptr], 2
+
+    add qword [rel col_number], 2
+
+    mov rax, TOK_ANDAND
+
+    ret
+
+
+.pipe:
+
+    lea rdx, [rcx + 1]
+
+    cmp rdx, [rel source_end]
+
+    jae .unknown
+
+    cmp byte [rdx], '|'
+
+    je .oror
+
+    jmp .unknown
+
+
+.oror:
+
+    add qword [rel source_ptr], 2
+
+    add qword [rel col_number], 2
+
+    mov rax, TOK_OROR
+
+    ret
+
 
 .slash:
 
@@ -1096,10 +1082,6 @@ lexer_next_token:
 
     jmp .comment_loop
 
-
-; ============================================================
-; CHAR
-; ============================================================
 
 .char:
 
@@ -1240,10 +1222,6 @@ lexer_next_token:
     ret
 
 
-; ============================================================
-; STRING
-; ============================================================
-
 .string:
 
     inc qword [rel source_ptr]
@@ -1322,16 +1300,6 @@ lexer_next_token:
     ret
 
 
-; ============================================================
-; NUMBER
-;
-; THIS IS IMPORTANT:
-;
-; rep 100
-;
-; current_number becomes 100, not 1.
-; ============================================================
-
 .number:
 
     xor r8, r8
@@ -1376,10 +1344,6 @@ lexer_next_token:
 
     ret
 
-
-; ============================================================
-; IDENTIFIER
-; ============================================================
 
 .identifier:
 
@@ -1461,10 +1425,6 @@ lexer_next_token:
     ret
 
 
-; ============================================================
-; KEYWORD 2
-; ============================================================
-
 .keyword_2:
 
     cmp byte [rsi], 'i'
@@ -1477,10 +1437,6 @@ lexer_next_token:
 
     ret
 
-
-; ============================================================
-; KEYWORD 3
-; ============================================================
 
 .keyword_3:
 
@@ -1549,10 +1505,6 @@ lexer_next_token:
 
     ret
 
-
-; ============================================================
-; KEYWORD 4
-; ============================================================
 
 .keyword_4:
 
@@ -1661,10 +1613,6 @@ lexer_next_token:
 
 %endif
 
-
-; ============================================================
-; KEYWORD 5
-; ============================================================
 
 .keyword_5:
 
@@ -1783,10 +1731,6 @@ lexer_next_token:
 
     ret
 
-
-; ============================================================
-; EOF
-; ============================================================
 
 .source_eof:
 

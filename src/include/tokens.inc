@@ -47,3 +47,7 @@
 %define TOK_USE          38
 %define TOK_NULL         39
 %define TOK_CHR          40
+%define TOK_ANDAND       41
+%define TOK_OROR         42
+%define TOK_NOTEQ        43
+%define TOK_AMP          44

@@ -1,103 +1,379 @@
 use "tokens.zr"
 use "std.zr"
 
+// --------------------------------------------------------------------
+// Missing constants not present in tokens.zr — added here.
+// --------------------------------------------------------------------
+nat8 TOK_NOTEQ      = 38
+nat8 TOK_ANDAND     = 39
+nat8 TOK_OROR       = 40
+nat8 TOK_TYPE_CHR   = 41   // "chr" the type keyword (distinct from TOK_CHR, the char literal)
+
+nat8 TOK_BANG_CHAR  = 33   // '!'
+nat8 TOK_AMP_CHAR   = 38   // '&'
+nat8 TOK_PIPE_CHAR  = 124  // '|'
+
+// --------------------------------------------------------------------
+// Global lexer state.
+// --------------------------------------------------------------------
+chr* source_ptr = 0
+chr* source_end = 0
+
+nat64 line_number = 0
+nat64 col_number = 0
+
 nat64 token_value = 0
-chr* token_ptr   = NULL
-nat64 token_len   = 0
+nat64 current_number = 0
 
-chr* lex_current = NULL
-nat16 lex_line   = 0
-nat16 lex_col    = 0
-chr* lex_end     = NULL
+chr* ident_ptr = 0
+nat64 ident_len = 0
 
-lexer_init(chr* source_ptr, chr* source_end) {
-    lex_current = source_ptr
-    lex_end     = source_end
-    lex_line    = 1
-    lex_col     = 1
+chr* string_ptr = 0
+nat64 string_len = 0
+
+// --------------------------------------------------------------------
+// lexer_init(source, length)
+// --------------------------------------------------------------------
+lexer_init(chr* src, nat64 len) {
+    source_ptr = src
+    source_end = src + len
+
+    line_number = 1
+    col_number = 1
+
+    token_value = 0
+    current_number = 0
+
+    ident_ptr = 0
+    ident_len = 0
+
+    string_ptr = 0
+    string_len = 0
 }
 
-lexer_peek() -> chr {
-    if lex_current >= lex_end {
-        ret 0
-    }
-    ret *lex_current
-}
-
-advance() -> chr {
-    if lex_current >= lex_end {
-        ret 0
-    }
-    chr c = *lex_current
-    lex_current = lex_current + 1
-    lex_col = lex_col + 1
-    ret c
-}
-
+// --------------------------------------------------------------------
+// Cursor helpers. No unary "!" — only "!=" is a valid two-char token.
+// --------------------------------------------------------------------
 is_end() -> nat8 {
-    ret lex_current >= lex_end
-}
-
-skip_white_space() {
-    rep true {
-        if is_end() {
-            ret 0
-        }
-        chr c = lexer_peek()
-        if c == ' ' {
-            advance()
-        }
-        if c == '\t' {
-            advance()
-        }
-        if c == '\r' {
-            advance()
-        }
-        if c == '\n' {
-            advance()
-            lex_line = lex_line + 1
-            lex_col = 1
-        }
-        if c == '/' {
-            advance()
-            if is_end() {
-                ret 0
-            }
-            chr next_c = lexer_peek()
-            if next_c == '/' {
-                rep true {
-                    if is_end() {
-                        ret 0
-                    }
-                    chr cc = lexer_peek()
-                    if cc == '\n' {
-                        ret 0
-                    }
-                    advance()
-                }
-            }
-        }
+    if source_ptr >= source_end {
+        ret 1
     }
     ret 0
 }
 
+peek_char() -> chr {
+    if is_end() {
+        ret 0
+    }
+    ret *source_ptr
+}
+
+peek_char_at(nat64 offset) -> chr {
+    chr* p = source_ptr + offset
+    if p >= source_end {
+        ret 0
+    }
+    ret *p
+}
+
+char_at(chr* p, nat64 n) -> chr {
+    ret *(p + n)
+}
+
+advance_char() -> chr {
+    chr c = *source_ptr
+    source_ptr = source_ptr + 1
+
+    if c == TOK_NL {
+        line_number = line_number + 1
+        col_number = 1
+    } else {
+        col_number = col_number + 1
+    }
+
+    ret c
+}
+
+// --------------------------------------------------------------------
+// Whitespace / comment skipping.
+// --------------------------------------------------------------------
+needs_skip() -> nat8 {
+    if is_end() {
+        ret 0
+    }
+
+    chr c = peek_char()
+
+    if c == TOK_SPACE { ret 1 }
+    if c == TOK_TAB { ret 1 }
+    if c == TOK_CR { ret 1 }
+    if c == TOK_NL { ret 1 }
+
+    if c == TOK_SLASH_CHAR {
+        if peek_char_at(1) == TOK_SLASH_CHAR {
+            ret 1
+        }
+    }
+
+    ret 0
+}
+
+not_at_comment_end() -> nat8 {
+    if is_end() {
+        ret 0
+    }
+    if peek_char() == TOK_NL {
+        ret 0
+    }
+    ret 1
+}
+
+skip_white_space() {
+    rep needs_skip() {
+        chr c = peek_char()
+
+        if c == TOK_SLASH_CHAR {
+            advance_char()
+            advance_char()
+
+            rep not_at_comment_end() {
+                advance_char()
+            }
+        } else {
+            advance_char()
+        }
+    }
+}
+
+// --------------------------------------------------------------------
+// Keyword lookup (byte access via *(ptr + n), not ptr[n]).
+// --------------------------------------------------------------------
+keyword_or_ident(chr* s, nat64 len) -> nat8 {
+    if len == 2 {
+        if char_at(s, 0) == 'i' && char_at(s, 1) == 'f' { ret TOK_IF }
+    }
+
+    if len == 3 {
+        if char_at(s, 0) == 'r' && char_at(s, 1) == 'e' && char_at(s, 2) == 'p' { ret TOK_REP }
+        if char_at(s, 0) == 'r' && char_at(s, 1) == 'e' && char_at(s, 2) == 't' { ret TOK_RET }
+        if char_at(s, 0) == 'u' && char_at(s, 1) == 's' && char_at(s, 2) == 'e' { ret TOK_USE }
+        if char_at(s, 0) == 'c' && char_at(s, 1) == 'h' && char_at(s, 2) == 'r' { ret TOK_TYPE_CHR }
+    }
+
+    if len == 4 {
+        if char_at(s, 0) == 'e' && char_at(s, 1) == 'l' && char_at(s, 2) == 's' && char_at(s, 3) == 'e' { ret TOK_ELSE }
+        if char_at(s, 0) == 'i' && char_at(s, 1) == 'n' && char_at(s, 2) == 't' && char_at(s, 3) == '8' { ret TOK_INT8 }
+        if char_at(s, 0) == 'n' && char_at(s, 1) == 'a' && char_at(s, 2) == 't' && char_at(s, 3) == '8' { ret TOK_NAT8 }
+    }
+
+    if len == 5 {
+        if char_at(s, 0) == 'i' && char_at(s, 1) == 'n' && char_at(s, 2) == 't' {
+            if char_at(s, 3) == '1' && char_at(s, 4) == '6' { ret TOK_INT16 }
+            if char_at(s, 3) == '3' && char_at(s, 4) == '2' { ret TOK_INT32 }
+            if char_at(s, 3) == '6' && char_at(s, 4) == '4' { ret TOK_INT64 }
+        }
+        if char_at(s, 0) == 'n' && char_at(s, 1) == 'a' && char_at(s, 2) == 't' {
+            if char_at(s, 3) == '1' && char_at(s, 4) == '6' { ret TOK_NAT16 }
+            if char_at(s, 3) == '3' && char_at(s, 4) == '2' { ret TOK_NAT32 }
+            if char_at(s, 3) == '6' && char_at(s, 4) == '4' { ret TOK_NAT64 }
+        }
+        if char_at(s, 0) == 'b' && char_at(s, 1) == 'o' && char_at(s, 2) == 'o' && char_at(s, 3) == 'l' {
+            ret TOK_BOOL
+        }
+    }
+
+    ret TOK_IDENT
+}
+
+// --------------------------------------------------------------------
+// String scanning: raw byte range between quotes, backslash just
+// escapes the following byte without interpreting it.
+// --------------------------------------------------------------------
+not_string_end() -> nat8 {
+    if is_end() {
+        ret 0
+    }
+    if peek_char() == TOK_DQUOTE {
+        ret 0
+    }
+    if peek_char() == TOK_NL {
+        ret 0
+    }
+    ret 1
+}
+
+// --------------------------------------------------------------------
+// Main entry point.
+// --------------------------------------------------------------------
 lexer_next_token() -> nat8 {
     skip_white_space()
 
-    if (is_end()) {
+    if is_end() {
         ret TOK_EOF
     }
 
-    token_ptr = lex_current
-    chr c = advance()
+    chr c = advance_char()
 
-    if (is_digit(c)) {
-        nat64 value = c - '0'
-        rep is_digit(lexer_peek()) {
-            value = value * 10 + (advance() - '0')
+    if is_digit(c) {
+        nat64 value = c - TOK_ZERO
+
+        rep is_digit(peek_char()) {
+            value = value * 10 + (advance_char() - TOK_ZERO)
         }
+
+        current_number = value
         token_value = value
+
         ret TOK_NUMBER
+    }
+
+    if is_alpha(c) || c == TOK_UNDERSCORE {
+        chr* ident_start = source_ptr - 1
+
+        rep is_alnium(peek_char()) || peek_char() == TOK_UNDERSCORE {
+            advance_char()
+        }
+
+        nat64 ident_scan_len = source_ptr - ident_start
+
+        ident_ptr = ident_start
+        ident_len = ident_scan_len
+
+        ret keyword_or_ident(ident_start, ident_scan_len)
+    }
+
+    if c == TOK_QUOTE {
+        if is_end() {
+            ret TOK_UNKNOWN
+        }
+
+        chr v = advance_char()
+
+        if v == TOK_BACKSLASH {
+            if is_end() {
+                ret TOK_UNKNOWN
+            }
+
+            chr e = advance_char()
+
+            if e == 'n' { v = 10 }
+            if e == 't' { v = 9 }
+            if e == 'r' { v = 13 }
+            if e == '0' { v = 0 }
+            if e == TOK_BACKSLASH { v = TOK_BACKSLASH }
+            if e == TOK_QUOTE { v = TOK_QUOTE }
+        }
+
+        if is_end() {
+            ret TOK_UNKNOWN
+        }
+
+        if advance_char() != TOK_QUOTE {
+            ret TOK_UNKNOWN
+        }
+
+        token_value = v
+        current_number = v
+
+        ret TOK_CHR
+    }
+
+    if c == TOK_DQUOTE {
+        chr* str_start = source_ptr
+
+        rep not_string_end() {
+            if peek_char() == TOK_BACKSLASH {
+                advance_char()
+                if is_end() == 0 {
+                    advance_char()
+                }
+            } else {
+                advance_char()
+            }
+        }
+
+        if is_end() {
+            ret TOK_UNKNOWN
+        }
+
+        nat64 str_scan_len = source_ptr - str_start
+
+        string_ptr = str_start
+        string_len = str_scan_len
+
+        advance_char()
+
+        ret TOK_STRING
+    }
+
+    if c == TOK_LBRACE_CHAR { ret TOK_LBRACE }
+    if c == TOK_RBRACE_CHAR { ret TOK_RBRACE }
+    if c == TOK_LPAREN_CHAR { ret TOK_LPAREN }
+    if c == TOK_RPAREN_CHAR { ret TOK_RPAREN }
+    if c == TOK_LBRACK_CHAR { ret TOK_LBRACK }
+    if c == TOK_RBRACK_CHAR { ret TOK_RBRACK }
+    if c == TOK_COMMA_CHAR { ret TOK_COMMA }
+    if c == TOK_PLUS_CHAR { ret TOK_PLUS }
+    if c == TOK_STAR_CHAR { ret TOK_STAR }
+
+    if c == TOK_SLASH_CHAR {
+        ret TOK_SLASH
+    }
+
+    if c == TOK_MINUS_CHAR {
+        if peek_char() == TOK_GT_CHAR {
+            advance_char()
+            ret TOK_ARROW
+        }
+        ret TOK_MINUS
+    }
+
+    if c == TOK_EQUAL_CHAR {
+        if peek_char() == TOK_EQUAL_CHAR {
+            advance_char()
+            ret TOK_EQEQ
+        }
+        ret TOK_EQUAL
+    }
+
+    if c == TOK_LT_CHAR {
+        if peek_char() == TOK_EQUAL_CHAR {
+            advance_char()
+            ret TOK_LTE
+        }
+        ret TOK_LT
+    }
+
+    if c == TOK_GT_CHAR {
+        if peek_char() == TOK_EQUAL_CHAR {
+            advance_char()
+            ret TOK_GTE
+        }
+        ret TOK_GT
+    }
+
+    if c == TOK_BANG_CHAR {
+        if peek_char() == TOK_EQUAL_CHAR {
+            advance_char()
+            ret TOK_NOTEQ
+        }
+        ret TOK_UNKNOWN
+    }
+
+    if c == TOK_AMP_CHAR {
+        if peek_char() == TOK_AMP_CHAR {
+            advance_char()
+            ret TOK_ANDAND
+        }
+        ret TOK_UNKNOWN
+    }
+
+    if c == TOK_PIPE_CHAR {
+        if peek_char() == TOK_PIPE_CHAR {
+            advance_char()
+            ret TOK_OROR
+        }
+        ret TOK_UNKNOWN
     }
 
     ret TOK_UNKNOWN

@@ -6,3 +6,26 @@ is_digit(nat8 c) -> nat8 {
     }
     ret 0
 }
+
+is_alpha(chr c) -> nat8
+{
+    bool is_lower = false
+    bool is_upper = false
+
+    if c >= 97 && c <= 122
+    {
+     ret is_lower
+    }
+
+    if (c >= 65 && c <= 90)
+    {
+     ret is_upper
+    }
+
+    ret is_lower || is_upper
+}
+
+is_alnium(chr c) -> nat8
+{
+    ret is_alpha(c) || is_digit(c)
+}

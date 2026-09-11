@@ -57,5 +57,6 @@ run: all
 exec: all
 	./$(BUILD_DIR)/zero stage0/src/main.zr > $(BUILD_DIR)/out.asm
 	$(ASM) -f elf64 $(BUILD_DIR)/out.asm -o $(BUILD_DIR)/out.o
-	$(LD) $(BUILD_DIR)/out.o -o $(BUILD_DIR)/out
+	$(ASM) -f elf64 src/runtime.asm -o $(BUILD_DIR)/runtime.o
+	$(LD) $(BUILD_DIR)/out.o $(BUILD_DIR)/runtime.o -o $(BUILD_DIR)/out
 	./$(BUILD_DIR)/out || true
