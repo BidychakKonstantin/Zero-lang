@@ -51,6 +51,7 @@ extern codegen_dereference
 extern codegen_add
 extern codegen_sub
 extern codegen_mul
+extern codegen_div
 
 extern codegen_cmp_eq
 extern codegen_cmp_neq
@@ -1818,6 +1819,9 @@ parser_expression_multiplicative_loop:
     cmp rax, TOK_STAR
     je parser_expression_mul
 
+    cmp rax, TOK_SLASH
+    je parser_expression_div
+
     ret
 
 parser_expression_mul:
@@ -1829,6 +1833,18 @@ parser_expression_mul:
     call parser_expression_unary
 
     call codegen_mul
+
+    jmp parser_expression_multiplicative_loop
+
+parser_expression_div:
+
+    call codegen_save_value
+
+    call parser_next
+
+    call parser_expression_unary
+
+    call codegen_div
 
     jmp parser_expression_multiplicative_loop
 

@@ -21,6 +21,7 @@ global codegen_dereference
 global codegen_add
 global codegen_sub
 global codegen_mul
+global codegen_div
 
 global codegen_cmp_eq
 global codegen_cmp_neq
@@ -72,6 +73,8 @@ section .rodata
 
 s_header:
     db "default rel", 10
+    db 10
+    db "extern write_bytes", 10
     db 10
     db "global _start", 10
     db "_start:", 10
@@ -169,6 +172,13 @@ s_mul:
     db "    pop rbx", 10
     db "    imul rax, rbx", 10
 s_mul_len equ $ - s_mul
+
+s_div:
+    db "    pop rbx", 10
+    db "    xchg rax, rbx", 10
+    db "    xor rdx, rdx", 10
+    db "    div rbx", 10
+s_div_len equ $ - s_div
 
 s_cmp_eq:
     db "    pop rbx", 10
@@ -1095,6 +1105,18 @@ codegen_mul:
 
     lea rsi, [rel s_mul]
     mov edx, s_mul_len
+
+    syscall
+
+    ret
+
+codegen_div:
+
+    mov eax, SYS_WRITE
+    mov edi, STDOUT
+
+    lea rsi, [rel s_div]
+    mov edx, s_div_len
 
     syscall
 

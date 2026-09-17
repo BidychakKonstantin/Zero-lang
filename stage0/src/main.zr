@@ -8,13 +8,14 @@
 
     main() {
         
-        chr* str = NULL
+        chr* str = 0
         lexer_init(str,10)
         nat16 a = 0
         bool ds = true
         nat8 bc = is_end()
         nat64 res = add(10,10)
-   
+      //  write_str("     mov rdi, 10")
+        write_bytes(str,a)
         if a == 0 || a == 1
         {
             a = a + 1
