@@ -2,6 +2,7 @@
     use "std.zr"
     use "lexer.zr"
 
+
     add(nat64 a, nat64 b) -> nat64 {
     ret a + b
     }
@@ -16,6 +17,7 @@
         nat64 res = add(10,10)
       //  write_str("     mov rdi, 10")
         write_bytes(str,a)
+        print_uint(res)
         if a == 0 || a == 1
         {
             a = a + 1

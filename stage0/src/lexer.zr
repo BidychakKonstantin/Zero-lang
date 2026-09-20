@@ -1,21 +1,6 @@
 use "tokens.zr"
 use "std.zr"
 
-// --------------------------------------------------------------------
-// Missing constants not present in tokens.zr — added here.
-// --------------------------------------------------------------------
-nat8 TOK_NOTEQ      = 38
-nat8 TOK_ANDAND     = 39
-nat8 TOK_OROR       = 40
-nat8 TOK_TYPE_CHR   = 41   // "chr" the type keyword (distinct from TOK_CHR, the char literal)
-
-nat8 TOK_BANG_CHAR  = 33   // '!'
-nat8 TOK_AMP_CHAR   = 38   // '&'
-nat8 TOK_PIPE_CHAR  = 124  // '|'
-
-// --------------------------------------------------------------------
-// Global lexer state.
-// --------------------------------------------------------------------
 chr* source_ptr = 0
 chr* source_end = 0
 
@@ -31,9 +16,6 @@ nat64 ident_len = 0
 chr* string_ptr = 0
 nat64 string_len = 0
 
-// --------------------------------------------------------------------
-// lexer_init(source, length)
-// --------------------------------------------------------------------
 lexer_init(chr* src, nat64 len) {
     source_ptr = src
     source_end = src + len
@@ -51,9 +33,6 @@ lexer_init(chr* src, nat64 len) {
     string_len = 0
 }
 
-// --------------------------------------------------------------------
-// Cursor helpers. No unary "!" — only "!=" is a valid two-char token.
-// --------------------------------------------------------------------
 is_end() -> nat8 {
     if source_ptr >= source_end {
         ret 1

@@ -1,3 +1,5 @@
+use "tokens.zr"
+
 is_digit(nat8 c) -> nat8 {
     if (c >= '0') {
         if (c <= '9') {
@@ -28,4 +30,38 @@ is_alpha(chr c) -> nat8
 is_alnium(chr c) -> nat8
 {
     ret is_alpha(c) || is_digit(c)
+}
+
+str_len(chr* s)
+{
+    nat64 n = 0 
+
+   rep *s != 0 {
+     s = s + 1
+     n = n + 1 
+   }
+
+    ret n
+}
+
+write_str(chr* s)
+{
+    nat64 len = str_len(s)
+    ret write_bytes(s, len)
+}
+
+print_uint(nat64 n) -> nat64
+{
+   if n >= 10
+   {
+    print_uint(n / 10)
+   }
+   nat64 digit = n - (n/10) * 10
+   nat8 c = n - TOK_ZERO
+   ret write_bytes(&c, 1)
+}
+
+emit_newline()
+{
+
 }
