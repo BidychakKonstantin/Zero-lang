@@ -1,0 +1,217 @@
+use "tokens.zr"
+use "std.zr"
+
+nat8 TOK_ND_NUM       = 1
+nat8 TOK_ND_CHAR      = 2
+nat8 TOK_ND_STRING    = 3
+nat8 TOK_ND_IDENT     = 4
+nat8 TOK_ND_BOOL      = 5
+nat8 TOK_ND_NULL      = 6
+nat8 TOK_ND_BINOP     = 7
+nat8 TOK_ND_UNARY     = 8
+nat8 TOK_ND_CALL      = 9
+nat8 TOK_ND_INDEX     = 10
+nat8 TOK_ND_ASSIGN    = 11
+nat8 TOK_ND_ARRASSIGN = 12
+nat8 TOK_ND_VARDECL   = 13
+nat8 TOK_ND_ARRDECL   = 14
+nat8 TOK_ND_IF        = 15
+nat8 TOK_ND_REPCOUNT  = 16
+nat8 TOK_ND_REPCOND   = 17
+nat8 TOK_ND_RETURN    = 18
+nat8 TOK_ND_PARAM     = 19
+nat8 TOK_ND_FUNC      = 20
+nat8 TOK_ND_PROGRAM   = 21
+nat8 TOK_ND_GLOBALVAR = 22
+nat8 TOK_ND_LIST      = 23
+
+nat8  ast_kind[4096]
+nat64 ast_a[4096]
+nat64 ast_b[4096]
+nat64 ast_c[2048]
+nat64 ast_d[2048]
+nat64 ast_name_ptr[1024]
+nat8  ast_name_len[1024]
+nat16 ast_next[4096]
+
+nat64 ast_count = 0
+
+ast_alloc_id()->nat64
+{
+    ast_count = ast_count + 1
+    ret ast_count
+}
+
+ast_list_new()->nat64
+{
+    nat64 id = ast_alloc_id()
+    ast_kind[id] = TOK_ND_LIST
+    ast_a[id] = 0
+    ast b[id] = 0
+    ret id 
+}
+
+ast_list_append(nat64 list_id, nat64 item_id) -> nat64
+{
+    nat64 tail = ast_d[list_id]
+    ast_next[item_id] = 0
+
+    if tail == 0
+    {
+         ast_a[list_id] = item_id
+    }
+    if tail != 0 
+    {
+      ast_a[tail] = item_id
+    }
+
+    ast_d[list_id] =item_id
+    ret 0
+}
+
+ast_list_first(nat64 list_id) -> nat64 {
+    ret ast_a[list_id]
+}
+
+ast_leaf_val(nat64 kind, nat64 value) -> nat64 {
+    nat64 id = ast_new_node()
+    ast_kind[id] = kind
+    ast_a[id] = value
+    ret id
+}
+
+ast_leaf_str(nat64 kind, chr* ptr, nat64 len) -> nat64 {
+    nat64 id = ast_new_node()
+    ast_kind[id] = kind
+    ast_name_ptr[id] = ptr
+    ast_name_len[id] = len
+    ret id
+}
+
+ast_num(nat64 value) -> nat64 {
+    ret ast_leaf_val(TOK_ND_NUM, value)
+}
+
+ast_char(nat64 value) -> nat64 {
+    ret ast_leaf_val(TOK_ND_CHAR, value)
+}
+
+ast_bool(nat64 v) -> nat64 {
+    ret ast_leaf_val(TOK_ND_BOOL, v)
+}
+
+ast_null() -> nat64 {
+    ret ast_leaf_val(TOK_ND_NULL, 0)
+}
+
+ast_return(nat64 expr) -> nat64 {
+    ret ast_leaf_val(TOK_ND_RETURN, expr)
+}
+
+ast_program(nat64 top_list) -> nat64 {
+    ret ast_leaf_val(TOK_ND_PROGRAM, top_list)
+}
+
+ast_string(chr* ptr, nat64 len) -> nat64 {
+    ret ast_leaf_str(TOK_ND_STRING, ptr, len)
+}
+
+ast_ident(chr* ptr, nat64 len) -> nat64 {
+    ret ast_leaf_str(TOK_ND_IDENT, ptr, len)
+}
+
+ast_binop(nat64 op, nat64 left, nat64 right) -> nat64 {
+    nat64 id = ast_leaf_val(TOK_ND_BINOP, left)
+    ast_b[id] = right
+    ast_c[id] = op
+    ret id
+}
+
+ast_unary(nat64 op, nat64 operand) -> nat64 {
+    nat64 id = ast_leaf_val(TOK_ND_UNARY, operand)
+    ast_c[id] = op
+    ret id
+}
+
+ast_if(nat64 cond, nat64 then_list, nat64 else_list) -> nat64 {
+    nat64 id = ast_leaf_val(TOK_ND_IF, cond)
+    ast_b[id] = then_list
+    ast_c[id] = else_list
+    ret id
+}
+
+ast_repcount(nat64 count, nat64 body_list) -> nat64 {
+    nat64 id = ast_leaf_val(TOK_ND_REPCOUNT, count)
+    ast_b[id] = body_list
+    ret id
+}
+
+ast_repcond(nat64 cond, nat64 body_list) -> nat64 {
+    nat64 id = ast_leaf_val(TOK_ND_REPCOND, cond)
+    ast_b[id] = body_list
+    ret id
+}
+
+
+ast_call(chr* name_ptr, nat64 name_len, nat64 args_list) -> nat64 {
+    nat64 id = ast_leaf_str(TOK_ND_CALL, name_ptr, name_len)
+    ast_a[id] = args_list
+    ret id
+}
+
+ast_index(chr* name_ptr, nat64 name_len, nat64 index_expr) -> nat64 {
+    nat64 id = ast_leaf_str(TOK_ND_INDEX, name_ptr, name_len)
+    ast_a[id] = index_expr
+    ret id
+}
+
+ast_assign(chr* name_ptr, nat64 name_len, nat64 value_expr) -> nat64 {
+    nat64 id = ast_leaf_str(TOK_ND_ASSIGN, name_ptr, name_len)
+    ast_a[id] = value_expr
+    ret id
+}
+
+ast_arrassign(chr* name_ptr, nat64 name_len, nat64 index_expr, nat64 value_expr) -> nat64 {
+    nat64 id = ast_leaf_str(TOK_ND_ARRASSIGN, name_ptr, name_len)
+    ast_a[id] = index_expr
+    ast_b[id] = value_expr
+    ret id
+}
+
+ast_vardecl(nat64 type_tok, nat64 is_ptr, chr* name_ptr, nat64 name_len, nat64 init_expr) -> nat64 {
+    nat64 id = ast_leaf_str(TOK_ND_VARDECL, name_ptr, name_len)
+    ast_a[id] = type_tok
+    ast_b[id] = init_expr
+    ast_d[id] = is_ptr
+    ret id
+}
+
+ast_arrdecl(nat64 type_tok, chr* name_ptr, nat64 name_len, nat64 size) -> nat64 {
+    nat64 id = ast_leaf_str(TOK_ND_ARRDECL, name_ptr, name_len)
+    ast_a[id] = type_tok
+    ast_d[id] = size
+    ret id
+}
+
+ast_param(nat64 type_tok, nat64 is_ptr, chr* name_ptr, nat64 name_len) -> nat64 {
+    nat64 id = ast_leaf_str(TOK_ND_PARAM, name_ptr, name_len)
+    ast_a[id] = type_tok
+    ast_d[id] = is_ptr
+    ret id
+}
+
+ast_globalvar(nat64 type_tok, nat64 is_ptr, chr* name_ptr, nat64 name_len) -> nat64 {
+    nat64 id = ast_leaf_str(TOK_ND_GLOBALVAR, name_ptr, name_len)
+    ast_a[id] = type_tok
+    ast_d[id] = is_ptr
+    ret id
+}
+
+ast_func(chr* name_ptr, nat64 name_len, nat64 params_list, nat64 body_list, nat64 ret_type, nat64 ret_is_ptr) -> nat64 {
+    nat64 id = ast_leaf_str(TOK_ND_FUNC, name_ptr, name_len)
+    ast_a[id] = params_list
+    ast_b[id] = body_list
+    ast_c[id] = ret_type
+    ast_d[id] = ret_is_ptr
+    ret id
+}
