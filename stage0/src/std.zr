@@ -1,67 +1,42 @@
 use "tokens.zr"
 
-is_digit(nat8 c) -> nat8 {
-    if (c >= '0') {
-        if (c <= '9') {
-            ret 1
-        }
+nat64 pu_buf[4]
+
+str_len(nat64 s) -> nat64 {
+    nat64 n = 0
+    rep *(s + n) != 0 {
+        n = n + 1
     }
-    ret 0
-}
-
-is_alpha(chr c) -> nat8
-{
-    bool is_lower = false
-    bool is_upper = false
-
-    if c >= 97 && c <= 122
-    {
-     ret is_lower
-    }
-
-    if (c >= 65 && c <= 90)
-    {
-     ret is_upper
-    }
-
-    ret is_lower || is_upper
-}
-
-is_alnium(chr c) -> nat8
-{
-    ret is_alpha(c) || is_digit(c)
-}
-
-str_len(chr* s)
-{
-    nat64 n = 0 
-
-   rep *s != 0 {
-     s = s + 1
-     n = n + 1 
-   }
-
     ret n
 }
 
-write_str(chr* s)
-{
-    nat64 len = str_len(s)
-    ret write_bytes(s, len)
+write_str(nat64 s) -> nat64 {
+    ret write_bytes(s, str_len(s))
 }
 
-print_uint(nat64 n) -> nat64
-{
-   if n >= 10
-   {
-    print_uint(n / 10)
-   }
-   nat64 digit = n - (n/10) * 10
-   nat8 c = n - TOK_ZERO
-   ret write_bytes(&c, 1)
+err_str(nat64 s) -> nat64 {
+    ret write_err(s, str_len(s))
 }
 
-emit_newline()
-{
+emit_nl() -> nat64 {
+    nat64 c = 10
+    ret write_bytes(&c, 1)
+}
 
+print_uint(nat64 n) -> nat64 {
+    nat64 pos = 32
+    if n == 0 {
+        pos = pos - 1
+        poke8(&pu_buf + pos, 48)
+    }
+    rep n != 0 {
+        pos = pos - 1
+        poke8(&pu_buf + pos, n - (n / 10) * 10 + 48)
+        n = n / 10
+    }
+    ret write_bytes(&pu_buf + pos, 32 - pos)
+}
+
+exit_program(nat64 code) -> nat64 {
+    ret syscall2(60, code)
 }

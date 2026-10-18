@@ -1,359 +1,428 @@
 use "tokens.zr"
 use "std.zr"
 
-chr* source_ptr = 0
-chr* source_end = 0
-
-nat64 line_number = 0
-nat64 col_number = 0
-
 nat64 token_value = 0
-nat64 current_number = 0
+nat64 token_ptr = 0
+nat64 token_len = 0
 
-chr* ident_ptr = 0
-nat64 ident_len = 0
+nat64 lx_cur = 0
+nat64 lx_end = 0
+nat64 lx_slot = 0
+nat64 lx_depth = 0
+nat64 lx_file_count = 0
+nat64 lx_used_count = 0
 
-chr* string_ptr = 0
-nat64 string_len = 0
+nat64 lx_pool[262144]
+nat64 lx_dirs[16384]
+nat64 lx_dirlen[32]
+nat64 lx_used[16384]
+nat64 lx_usedlen[32]
+nat64 lx_stack_cur[32]
+nat64 lx_stack_end[32]
+nat64 lx_stack_slot[32]
+nat64 lx_path[512]
 
-lexer_init(chr* src, nat64 len) {
-    source_ptr = src
-    source_end = src + len
-
-    line_number = 1
-    col_number = 1
-
-    token_value = 0
-    current_number = 0
-
-    ident_ptr = 0
-    ident_len = 0
-
-    string_ptr = 0
-    string_len = 0
+lx_fail(nat64 msg) -> nat64 {
+    err_str("Error: ")
+    err_str(msg)
+    err_str("\n")
+    ret exit_program(1)
 }
 
-is_end() -> nat8 {
-    if source_ptr >= source_end {
-        ret 1
-    }
-    ret 0
-}
-
-peek_char() -> chr {
-    if is_end() {
+lx_peek() -> nat64 {
+    if lx_cur >= lx_end {
         ret 0
     }
-    ret *source_ptr
+    ret *lx_cur
 }
 
-peek_char_at(nat64 offset) -> chr {
-    chr* p = source_ptr + offset
-    if p >= source_end {
+lx_peek_at(nat64 off) -> nat64 {
+    nat64 p = lx_cur + off
+    if p >= lx_end {
         ret 0
     }
     ret *p
 }
 
-char_at(chr* p, nat64 n) -> chr {
-    ret *(p + n)
-}
-
-advance_char() -> chr {
-    chr c = *source_ptr
-    source_ptr = source_ptr + 1
-
-    if c == TOK_NL {
-        line_number = line_number + 1
-        col_number = 1
-    } else {
-        col_number = col_number + 1
+lx_adv() -> nat64 {
+    nat64 c = lx_peek()
+    if lx_cur < lx_end {
+        lx_cur = lx_cur + 1
     }
-
     ret c
 }
 
-// --------------------------------------------------------------------
-// Whitespace / comment skipping.
-// --------------------------------------------------------------------
-needs_skip() -> nat8 {
-    if is_end() {
-        ret 0
-    }
+lx_is_digit(nat64 c) -> nat64 {
+    ret c >= 48 && c <= 57
+}
 
-    chr c = peek_char()
+lx_is_alpha(nat64 c) -> nat64 {
+    ret (c >= 97 && c <= 122) || (c >= 65 && c <= 90) || c == 95
+}
 
-    if c == TOK_SPACE { ret 1 }
-    if c == TOK_TAB { ret 1 }
-    if c == TOK_CR { ret 1 }
-    if c == TOK_NL { ret 1 }
+lx_is_alnum(nat64 c) -> nat64 {
+    ret lx_is_alpha(c) == 1 || lx_is_digit(c) == 1
+}
 
-    if c == TOK_SLASH_CHAR {
-        if peek_char_at(1) == TOK_SLASH_CHAR {
-            ret 1
+lx_skip() -> nat64 {
+    rep true {
+        nat64 c = lx_peek()
+        if c == 32 || c == 9 || c == 13 {
+            lx_adv()
+        } else {
+            if c == 47 && lx_peek_at(1) == 47 {
+                rep lx_peek() != 10 && lx_peek() != 0 {
+                    lx_adv()
+                }
+            } else {
+                ret 0
+            }
         }
     }
-
     ret 0
 }
 
-not_at_comment_end() -> nat8 {
-    if is_end() {
+lx_tok(nat64 t, nat64 start, nat64 len) -> nat64 {
+    token_ptr = start
+    token_len = len
+    ret t
+}
+
+lx_kw(nat64 p, nat64 n, nat64 s, nat64 sn) -> nat64 {
+    if n != sn {
         ret 0
     }
-    if peek_char() == TOK_NL {
-        ret 0
+    nat64 i = 0
+    rep i != n {
+        if *(p + i) != *(s + i) {
+            ret 0
+        }
+        i = i + 1
     }
     ret 1
 }
 
-skip_white_space() {
-    rep needs_skip() {
-        chr c = peek_char()
-
-        if c == TOK_SLASH_CHAR {
-            advance_char()
-            advance_char()
-
-            rep not_at_comment_end() {
-                advance_char()
-            }
-        } else {
-            advance_char()
-        }
+lx_keyword(nat64 p, nat64 n) -> nat64 {
+    if lx_kw(p, n, "if", 2) == 1 {
+        ret TOK_IF
     }
-}
-
-// --------------------------------------------------------------------
-// Keyword lookup (byte access via *(ptr + n), not ptr[n]).
-// --------------------------------------------------------------------
-keyword_or_ident(chr* s, nat64 len) -> nat8 {
-    if len == 2 {
-        if char_at(s, 0) == 'i' && char_at(s, 1) == 'f' { ret TOK_IF }
+    if lx_kw(p, n, "else", 4) == 1 {
+        ret TOK_ELSE
     }
-
-    if len == 3 {
-        if char_at(s, 0) == 'r' && char_at(s, 1) == 'e' && char_at(s, 2) == 'p' { ret TOK_REP }
-        if char_at(s, 0) == 'r' && char_at(s, 1) == 'e' && char_at(s, 2) == 't' { ret TOK_RET }
-        if char_at(s, 0) == 'u' && char_at(s, 1) == 's' && char_at(s, 2) == 'e' { ret TOK_USE }
-        if char_at(s, 0) == 'c' && char_at(s, 1) == 'h' && char_at(s, 2) == 'r' { ret TOK_TYPE_CHR }
+    if lx_kw(p, n, "rep", 3) == 1 {
+        ret TOK_REP
     }
-
-    if len == 4 {
-        if char_at(s, 0) == 'e' && char_at(s, 1) == 'l' && char_at(s, 2) == 's' && char_at(s, 3) == 'e' { ret TOK_ELSE }
-        if char_at(s, 0) == 'i' && char_at(s, 1) == 'n' && char_at(s, 2) == 't' && char_at(s, 3) == '8' { ret TOK_INT8 }
-        if char_at(s, 0) == 'n' && char_at(s, 1) == 'a' && char_at(s, 2) == 't' && char_at(s, 3) == '8' { ret TOK_NAT8 }
+    if lx_kw(p, n, "ret", 3) == 1 {
+        ret TOK_RET
     }
-
-    if len == 5 {
-        if char_at(s, 0) == 'i' && char_at(s, 1) == 'n' && char_at(s, 2) == 't' {
-            if char_at(s, 3) == '1' && char_at(s, 4) == '6' { ret TOK_INT16 }
-            if char_at(s, 3) == '3' && char_at(s, 4) == '2' { ret TOK_INT32 }
-            if char_at(s, 3) == '6' && char_at(s, 4) == '4' { ret TOK_INT64 }
-        }
-        if char_at(s, 0) == 'n' && char_at(s, 1) == 'a' && char_at(s, 2) == 't' {
-            if char_at(s, 3) == '1' && char_at(s, 4) == '6' { ret TOK_NAT16 }
-            if char_at(s, 3) == '3' && char_at(s, 4) == '2' { ret TOK_NAT32 }
-            if char_at(s, 3) == '6' && char_at(s, 4) == '4' { ret TOK_NAT64 }
-        }
-        if char_at(s, 0) == 'b' && char_at(s, 1) == 'o' && char_at(s, 2) == 'o' && char_at(s, 3) == 'l' {
-            ret TOK_BOOL
-        }
+    if lx_kw(p, n, "use", 3) == 1 {
+        ret TOK_USE
     }
-
+    if lx_kw(p, n, "chr", 3) == 1 {
+        ret TOK_CHR
+    }
+    if lx_kw(p, n, "bool", 4) == 1 {
+        ret TOK_BOOL
+    }
+    if lx_kw(p, n, "NULL", 4) == 1 {
+        ret TOK_NULL
+    }
+    if lx_kw(p, n, "int8", 4) == 1 {
+        ret TOK_INT8
+    }
+    if lx_kw(p, n, "nat8", 4) == 1 {
+        ret TOK_NAT8
+    }
+    if lx_kw(p, n, "int16", 5) == 1 {
+        ret TOK_INT16
+    }
+    if lx_kw(p, n, "nat16", 5) == 1 {
+        ret TOK_NAT16
+    }
+    if lx_kw(p, n, "int32", 5) == 1 {
+        ret TOK_INT32
+    }
+    if lx_kw(p, n, "nat32", 5) == 1 {
+        ret TOK_NAT32
+    }
+    if lx_kw(p, n, "int64", 5) == 1 {
+        ret TOK_INT64
+    }
+    if lx_kw(p, n, "nat64", 5) == 1 {
+        ret TOK_NAT64
+    }
     ret TOK_IDENT
 }
 
-// --------------------------------------------------------------------
-// String scanning: raw byte range between quotes, backslash just
-// escapes the following byte without interpreting it.
-// --------------------------------------------------------------------
-not_string_end() -> nat8 {
-    if is_end() {
-        ret 0
+lx_single(nat64 c) -> nat64 {
+    if c == 10 {
+        ret TOK_NEWLINE
     }
-    if peek_char() == TOK_DQUOTE {
-        ret 0
+    if c == '{' {
+        ret TOK_LBRACE
     }
-    if peek_char() == TOK_NL {
-        ret 0
+    if c == '}' {
+        ret TOK_RBRACE
     }
+    if c == '(' {
+        ret TOK_LPAREN
+    }
+    if c == ')' {
+        ret TOK_RPAREN
+    }
+    if c == '[' {
+        ret TOK_LBRACK
+    }
+    if c == ']' {
+        ret TOK_RBRACK
+    }
+    if c == ',' {
+        ret TOK_COMMA
+    }
+    if c == '+' {
+        ret TOK_PLUS
+    }
+    if c == '*' {
+        ret TOK_STAR
+    }
+    if c == '/' {
+        ret TOK_SLASH
+    }
+    ret 0
+}
+
+lx_pop() -> nat64 {
+    lx_depth = lx_depth - 1
+    lx_cur = lx_stack_cur[lx_depth]
+    lx_end = lx_stack_end[lx_depth]
+    lx_slot = lx_stack_slot[lx_depth]
+    ret 0
+}
+
+lexer_next_token() -> nat64 {
+    lx_skip()
+    if lx_cur >= lx_end {
+        if lx_depth == 0 {
+            ret TOK_EOF
+        }
+        lx_pop()
+        ret lexer_next_token()
+    }
+    nat64 start = lx_cur
+    nat64 c = lx_adv()
+
+    nat64 st = lx_single(c)
+    if st != 0 {
+        ret lx_tok(st, start, 1)
+    }
+
+    if c == '=' {
+        if lx_peek() == '=' {
+            lx_adv()
+            ret lx_tok(TOK_EQEQ, start, 2)
+        }
+        ret lx_tok(TOK_EQUAL, start, 1)
+    }
+    if c == '-' {
+        if lx_peek() == '>' {
+            lx_adv()
+            ret lx_tok(TOK_ARROW, start, 2)
+        }
+        ret lx_tok(TOK_MINUS, start, 1)
+    }
+    if c == '<' {
+        if lx_peek() == '=' {
+            lx_adv()
+            ret lx_tok(TOK_LTE, start, 2)
+        }
+        ret lx_tok(TOK_LT, start, 1)
+    }
+    if c == '>' {
+        if lx_peek() == '=' {
+            lx_adv()
+            ret lx_tok(TOK_GTE, start, 2)
+        }
+        ret lx_tok(TOK_GT, start, 1)
+    }
+    if c == '!' {
+        if lx_peek() == '=' {
+            lx_adv()
+            ret lx_tok(TOK_NOTEQ, start, 2)
+        }
+        ret lx_tok(TOK_UNKNOWN, start, 1)
+    }
+    if c == '&' {
+        if lx_peek() == '&' {
+            lx_adv()
+            ret lx_tok(TOK_ANDAND, start, 2)
+        }
+        ret lx_tok(TOK_AMP, start, 1)
+    }
+    if c == '|' {
+        if lx_peek() == '|' {
+            lx_adv()
+            ret lx_tok(TOK_OROR, start, 2)
+        }
+        ret lx_tok(TOK_UNKNOWN, start, 1)
+    }
+
+    if lx_is_digit(c) == 1 {
+        nat64 v = c - 48
+        rep lx_is_digit(lx_peek()) == 1 {
+            v = v * 10 + (lx_adv() - 48)
+        }
+        token_value = v
+        ret lx_tok(TOK_NUMBER, start, lx_cur - start)
+    }
+
+    if c == 39 {
+        nat64 ch = lx_adv()
+        if ch == 92 {
+            nat64 e = lx_adv()
+            ch = e
+            if e == 'n' {
+                ch = 10
+            }
+            if e == 't' {
+                ch = 9
+            }
+            if e == 'r' {
+                ch = 13
+            }
+            if e == '0' {
+                ch = 0
+            }
+        }
+        lx_adv()
+        token_value = ch
+        ret lx_tok(TOK_CHAR, start, lx_cur - start)
+    }
+
+    if c == 34 {
+        nat64 sstart = lx_cur
+        rep lx_peek() != 34 && lx_peek() != 0 {
+            if lx_peek() == 92 {
+                lx_adv()
+            }
+            lx_adv()
+        }
+        nat64 slen = lx_cur - sstart
+        lx_adv()
+        ret lx_tok(TOK_STRING, sstart, slen)
+    }
+
+    if lx_is_alpha(c) == 1 {
+        rep lx_is_alnum(lx_peek()) == 1 {
+            lx_adv()
+        }
+        nat64 ilen = lx_cur - start
+        ret lx_tok(lx_keyword(start, ilen), start, ilen)
+    }
+
+    ret lx_tok(TOK_UNKNOWN, start, 1)
+}
+
+lx_copy_to_path(nat64 src, nat64 n, nat64 at) -> nat64 {
+    nat64 i = 0
+    rep i != n {
+        poke8(&lx_path + at + i, *(src + i))
+        i = i + 1
+    }
+    ret at + n
+}
+
+lx_find_used(nat64 n) -> nat64 {
+    nat64 k = 0
+    rep k != lx_used_count {
+        if lx_usedlen[k] == n {
+            nat64 base = &lx_used + k * 4096
+            nat64 i = 0
+            nat64 same = 1
+            rep i != n {
+                if *(base + i) != *(&lx_path + i) {
+                    same = 0
+                }
+                i = i + 1
+            }
+            if same == 1 {
+                ret 1
+            }
+        }
+        k = k + 1
+    }
+    ret 0
+}
+
+lx_record_used(nat64 n) -> nat64 {
+    nat64 base = &lx_used + lx_used_count * 4096
+    nat64 i = 0
+    rep i != n {
+        poke8(base + i, *(&lx_path + i))
+        i = i + 1
+    }
+    lx_usedlen[lx_used_count] = n
+    lx_used_count = lx_used_count + 1
+    ret 0
+}
+
+lx_set_dir(nat64 slot, nat64 n) -> nat64 {
+    nat64 i = 0
+    nat64 dl = 0
+    rep i != n {
+        if *(&lx_path + i) == '/' {
+            dl = i + 1
+        }
+        i = i + 1
+    }
+    nat64 dbase = &lx_dirs + slot * 4096
+    i = 0
+    rep i != dl {
+        poke8(dbase + i, *(&lx_path + i))
+        i = i + 1
+    }
+    lx_dirlen[slot] = dl
+    ret 0
+}
+
+lx_load(nat64 n) -> nat64 {
+    poke8(&lx_path + n, 0)
+    if lx_find_used(n) == 1 {
+        ret 1
+    }
+    if lx_file_count >= 31 || lx_depth >= 31 {
+        lx_fail("too many source files")
+    }
+    lx_record_used(n)
+    nat64 slot = lx_file_count
+    lx_file_count = lx_file_count + 1
+    nat64 base = &lx_pool + slot * 65536
+    nat64 got = read_file(&lx_path, base, 65535)
+    if got > 65535 {
+        lx_fail("cannot open source file")
+    }
+    poke8(base + got, 0)
+    lx_stack_cur[lx_depth] = lx_cur
+    lx_stack_end[lx_depth] = lx_end
+    lx_stack_slot[lx_depth] = lx_slot
+    lx_depth = lx_depth + 1
+    lx_cur = base
+    lx_end = base + got
+    lx_slot = slot
+    lx_set_dir(slot, n)
     ret 1
 }
 
-// --------------------------------------------------------------------
-// Main entry point.
-// --------------------------------------------------------------------
-lexer_next_token() -> nat8 {
-    skip_white_space()
+lexer_open(nat64 path) -> nat64 {
+    nat64 n = str_len(path)
+    lx_copy_to_path(path, n, 0)
+    ret lx_load(n)
+}
 
-    if is_end() {
-        ret TOK_EOF
+lexer_use_file(nat64 p, nat64 n) -> nat64 {
+    nat64 at = 0
+    if *p != '/' {
+        at = lx_copy_to_path(&lx_dirs + lx_slot * 4096, lx_dirlen[lx_slot], 0)
     }
-
-    chr c = advance_char()
-
-    if is_digit(c) {
-        nat64 value = c - TOK_ZERO
-
-        rep is_digit(peek_char()) {
-            value = value * 10 + (advance_char() - TOK_ZERO)
-        }
-
-        current_number = value
-        token_value = value
-
-        ret TOK_NUMBER
-    }
-
-    if is_alpha(c) || c == TOK_UNDERSCORE {
-        chr* ident_start = source_ptr - 1
-
-        rep is_alnium(peek_char()) || peek_char() == TOK_UNDERSCORE {
-            advance_char()
-        }
-
-        nat64 ident_scan_len = source_ptr - ident_start
-
-        ident_ptr = ident_start
-        ident_len = ident_scan_len
-
-        ret keyword_or_ident(ident_start, ident_scan_len)
-    }
-
-    if c == TOK_QUOTE {
-        if is_end() {
-            ret TOK_UNKNOWN
-        }
-
-        chr v = advance_char()
-
-        if v == TOK_BACKSLASH {
-            if is_end() {
-                ret TOK_UNKNOWN
-            }
-
-            chr e = advance_char()
-
-            if e == 'n' { v = 10 }
-            if e == 't' { v = 9 }
-            if e == 'r' { v = 13 }
-            if e == '0' { v = 0 }
-            if e == TOK_BACKSLASH { v = TOK_BACKSLASH }
-            if e == TOK_QUOTE { v = TOK_QUOTE }
-        }
-
-        if is_end() {
-            ret TOK_UNKNOWN
-        }
-
-        if advance_char() != TOK_QUOTE {
-            ret TOK_UNKNOWN
-        }
-
-        token_value = v
-        current_number = v
-
-        ret TOK_CHR
-    }
-
-    if c == TOK_DQUOTE {
-        chr* str_start = source_ptr
-
-        rep not_string_end() {
-            if peek_char() == TOK_BACKSLASH {
-                advance_char()
-                if is_end() == 0 {
-                    advance_char()
-                }
-            } else {
-                advance_char()
-            }
-        }
-
-        if is_end() {
-            ret TOK_UNKNOWN
-        }
-
-        nat64 str_scan_len = source_ptr - str_start
-
-        string_ptr = str_start
-        string_len = str_scan_len
-
-        advance_char()
-
-        ret TOK_STRING
-    }
-
-    if c == TOK_LBRACE_CHAR { ret TOK_LBRACE }
-    if c == TOK_RBRACE_CHAR { ret TOK_RBRACE }
-    if c == TOK_LPAREN_CHAR { ret TOK_LPAREN }
-    if c == TOK_RPAREN_CHAR { ret TOK_RPAREN }
-    if c == TOK_LBRACK_CHAR { ret TOK_LBRACK }
-    if c == TOK_RBRACK_CHAR { ret TOK_RBRACK }
-    if c == TOK_COMMA_CHAR { ret TOK_COMMA }
-    if c == TOK_PLUS_CHAR { ret TOK_PLUS }
-    if c == TOK_STAR_CHAR { ret TOK_STAR }
-
-    if c == TOK_SLASH_CHAR {
-        ret TOK_SLASH
-    }
-
-    if c == TOK_MINUS_CHAR {
-        if peek_char() == TOK_GT_CHAR {
-            advance_char()
-            ret TOK_ARROW
-        }
-        ret TOK_MINUS
-    }
-
-    if c == TOK_EQUAL_CHAR {
-        if peek_char() == TOK_EQUAL_CHAR {
-            advance_char()
-            ret TOK_EQEQ
-        }
-        ret TOK_EQUAL
-    }
-
-    if c == TOK_LT_CHAR {
-        if peek_char() == TOK_EQUAL_CHAR {
-            advance_char()
-            ret TOK_LTE
-        }
-        ret TOK_LT
-    }
-
-    if c == TOK_GT_CHAR {
-        if peek_char() == TOK_EQUAL_CHAR {
-            advance_char()
-            ret TOK_GTE
-        }
-        ret TOK_GT
-    }
-
-    if c == TOK_BANG_CHAR {
-        if peek_char() == TOK_EQUAL_CHAR {
-            advance_char()
-            ret TOK_NOTEQ
-        }
-        ret TOK_UNKNOWN
-    }
-
-    if c == TOK_AMP_CHAR {
-        if peek_char() == TOK_AMP_CHAR {
-            advance_char()
-            ret TOK_ANDAND
-        }
-        ret TOK_UNKNOWN
-    }
-
-    if c == TOK_PIPE_CHAR {
-        if peek_char() == TOK_PIPE_CHAR {
-            advance_char()
-            ret TOK_OROR
-        }
-        ret TOK_UNKNOWN
-    }
-
-    ret TOK_UNKNOWN
+    at = lx_copy_to_path(p, n, at)
+    ret lx_load(at)
 }

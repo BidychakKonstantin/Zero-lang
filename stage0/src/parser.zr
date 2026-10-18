@@ -1,0 +1,573 @@
+use "tokens.zr"
+use "std.zr"
+use "lexer.zr"
+use "ast.zr"
+
+nat8 TOK_ND_CONST = 24
+
+nat64 cur_tok = 0
+chr*  cur_ptr = 0
+nat64 cur_len = 0
+nat64 cur_val = 0
+
+nat64 pstk[1024]
+nat64 psp = 0
+
+ppush(nat64 v) -> nat64 {
+    pstk[psp] = v
+    psp = psp + 1
+    ret 0
+}
+
+ppop() -> nat64 {
+    psp = psp - 1
+    ret pstk[psp]
+}
+
+p_next() -> nat64 {
+    cur_tok = lexer_next_token()
+    cur_ptr = token_ptr
+    cur_len = token_len
+    cur_val = token_value
+    ret 0
+}
+
+p_skip_nl() -> nat64 {
+    rep cur_tok == TOK_NEWLINE {
+        p_next()
+    }
+    ret 0
+}
+
+p_error(chr* msg) -> nat64 {
+    err_str("Syntax Error: ")
+    err_str(msg)
+    err_str(" near '")
+    write_err(cur_ptr, cur_len)
+    err_str("'\n")
+    exit_program(1)
+    ret 0
+}
+p_expect(nat64 t) -> nat64 {
+    if cur_tok != t {
+        p_error("unexpected token")
+    }
+    ret 0
+}
+
+p_eq(chr* a, nat64 alen, chr* b, nat64 blen) -> nat8 {
+    if alen != blen {
+        ret 0
+    }
+    nat64 i = 0
+    rep i != alen {
+        if *(a + i) != *(b + i) {
+            ret 0
+        }
+        i = i + 1
+    }
+    ret 1
+}
+
+p_is_type(nat64 t) -> nat8 {
+    if t == TOK_INT8 || t == TOK_NAT8 || t == TOK_INT16 || t == TOK_NAT16 || t == TOK_INT32 || t == TOK_NAT32 || t == TOK_INT64 || t == TOK_NAT64 || t == TOK_CHR || t == TOK_BOOL {
+        ret 1
+    }
+    ret 0
+}
+
+p_is_cmp(nat64 t) -> nat8 {
+    if t == TOK_EQEQ || t == TOK_NOTEQ || t == TOK_LT || t == TOK_GT || t == TOK_LTE || t == TOK_GTE {
+        ret 1
+    }
+    ret 0
+}
+
+p_is_const_name(chr* ptr, nat64 len) -> nat8 {
+    if len < 4 {
+        ret 0
+    }
+    if *(ptr + 0) != 'T' {
+        ret 0
+    }
+    if *(ptr + 1) != 'O' {
+        ret 0
+    }
+    if *(ptr + 2) != 'K' {
+        ret 0
+    }
+    if *(ptr + 3) != '_' {
+        ret 0
+    }
+    ret 1
+}
+
+p_make_const(chr* np, nat64 nl, nat64 init) -> nat64 {
+    nat64 id = ast_new_node()
+    ast_kind[id] = TOK_ND_CONST
+    ast_name_ptr[id] = np
+    ast_name_len[id] = nl
+    ast_a[id] = init
+    ret id
+}
+
+// ============================================================
+// ВИРАЗИ
+// ============================================================
+
+parse_expr() -> nat64 {
+    ret parse_or()
+}
+
+parse_or() -> nat64 {
+    nat64 l = parse_and()
+    rep cur_tok == TOK_OROR {
+        ppush(l)
+        p_next()
+        nat64 r = parse_and()
+        l = ast_binop(TOK_OROR, ppop(), r)
+    }
+    ret l
+}
+
+parse_and() -> nat64 {
+    nat64 l = parse_cmp()
+    rep cur_tok == TOK_ANDAND {
+        ppush(l)
+        p_next()
+        nat64 r = parse_cmp()
+        l = ast_binop(TOK_ANDAND, ppop(), r)
+    }
+    ret l
+}
+
+parse_cmp() -> nat64 {
+    nat64 l = parse_add()
+    rep p_is_cmp(cur_tok) == 1 {
+        ppush(l)
+        ppush(cur_tok)
+        p_next()
+        nat64 r = parse_add()
+        nat64 op = ppop()
+        l = ast_binop(op, ppop(), r)
+    }
+    ret l
+}
+
+parse_add() -> nat64 {
+    nat64 l = parse_mul()
+    rep cur_tok == TOK_PLUS || cur_tok == TOK_MINUS {
+        ppush(l)
+        ppush(cur_tok)
+        p_next()
+        nat64 r = parse_mul()
+        nat64 op = ppop()
+        l = ast_binop(op, ppop(), r)
+    }
+    ret l
+}
+
+parse_mul() -> nat64 {
+    nat64 l = parse_unary()
+    rep cur_tok == TOK_STAR || cur_tok == TOK_SLASH {
+        ppush(l)
+        ppush(cur_tok)
+        p_next()
+        nat64 r = parse_unary()
+        nat64 op = ppop()
+        l = ast_binop(op, ppop(), r)
+    }
+    ret l
+}
+
+parse_unary() -> nat64 {
+    if cur_tok == TOK_STAR {
+        p_next()
+        ret ast_unary(TOK_STAR, parse_unary())
+    }
+    if cur_tok == TOK_AMP {
+        p_next()
+        ret ast_unary(TOK_AMP, parse_unary())
+    }
+    ret parse_primary()
+}
+
+// Передумова: cur_tok == TOK_LPAREN. Повертає список аргументів,
+// після ')' переходить до наступного токена.
+parse_call_args() -> nat64 {
+    ppush(ast_list_new())
+    p_next()
+    rep cur_tok != TOK_RPAREN {
+        nat64 ca = parse_expr()
+        ast_list_append(pstk[psp - 1], ca)
+        if cur_tok == TOK_COMMA {
+            p_next()
+        }
+    }
+    p_next()
+    ret ppop()
+}
+
+parse_primary() -> nat64 {
+    nat64 pn = 0
+
+    if cur_tok == TOK_NUMBER {
+        pn = ast_num(cur_val)
+        p_next()
+        ret pn
+    }
+
+    if cur_tok == TOK_CHAR {
+        pn = ast_char(cur_val)
+        p_next()
+        ret pn
+    }
+
+    if cur_tok == TOK_STRING {
+        pn = ast_string(cur_ptr, cur_len)
+        p_next()
+        ret pn
+    }
+
+    if cur_tok == TOK_NULL {
+        pn = ast_null()
+        p_next()
+        ret pn
+    }
+
+    if cur_tok == TOK_LPAREN {
+        p_next()
+        pn = parse_expr()
+        p_expect(TOK_RPAREN)
+        p_next()
+        ret pn
+    }
+
+    if cur_tok == TOK_IDENT {
+
+        if p_eq(cur_ptr, cur_len, "true", 4) == 1 {
+            pn = ast_bool(1)
+            p_next()
+            ret pn
+        }
+
+        if p_eq(cur_ptr, cur_len, "false", 5) == 1 {
+            pn = ast_bool(0)
+            p_next()
+            ret pn
+        }
+
+        ppush(cur_ptr)
+        ppush(cur_len)
+        p_next()
+
+        if cur_tok == TOK_LPAREN {
+            nat64 pargs = parse_call_args()
+            nat64 pcl = ppop()
+            nat64 pcp = ppop()
+            ret ast_call(pcp, pcl, pargs)
+        }
+
+        if cur_tok == TOK_LBRACK {
+            p_next()
+            nat64 pidx = parse_expr()
+            p_expect(TOK_RBRACK)
+            p_next()
+            nat64 pil = ppop()
+            nat64 pip = ppop()
+            ret ast_index(pip, pil, pidx)
+        }
+
+        nat64 pl2 = ppop()
+        nat64 pp2 = ppop()
+        ret ast_ident(pp2, pl2)
+    }
+
+    p_error("expected expression")
+    ret 0
+}
+
+parse_block() -> nat64 {
+    p_skip_nl()
+    p_expect(TOK_LBRACE)
+    p_next()
+    ppush(ast_list_new())
+    p_skip_nl()
+    rep cur_tok != TOK_RBRACE {
+        if cur_tok == TOK_EOF {
+            p_error("expected }")
+        }
+        nat64 st = parse_stmt()
+        ast_list_append(pstk[psp - 1], st)
+        p_skip_nl()
+    }
+    p_next()
+    ret ppop()
+}
+
+parse_stmt() -> nat64 {
+
+    // ---- оголошення змінної / масиву ----
+    if p_is_type(cur_tok) == 1 {
+        ppush(cur_tok)
+        ppush(0)
+        p_next()
+        if cur_tok == TOK_STAR {
+            pstk[psp - 1] = 1
+            p_next()
+        }
+        p_expect(TOK_IDENT)
+        ppush(cur_ptr)
+        ppush(cur_len)
+        p_next()
+
+        if cur_tok == TOK_LBRACK {
+            p_next()
+            p_expect(TOK_NUMBER)
+            nat64 asz = cur_val
+            p_next()
+            p_expect(TOK_RBRACK)
+            p_next()
+            nat64 anl = ppop()
+            nat64 anp = ppop()
+            ppop()
+            nat64 aty = ppop()
+            ret ast_arrdecl(aty, anp, anl, asz)
+        }
+
+        p_expect(TOK_EQUAL)
+        p_next()
+        nat64 vin = parse_expr()
+        nat64 vnl = ppop()
+        nat64 vnp = ppop()
+        nat64 vip = ppop()
+        nat64 vty = ppop()
+        ret ast_vardecl(vty, vip, vnp, vnl, vin)
+    }
+
+    // ---- if / else ----
+    if cur_tok == TOK_IF {
+        p_next()
+        ppush(parse_expr())
+        ppush(parse_block())
+        p_skip_nl()
+        nat64 iels = 0
+        if cur_tok == TOK_ELSE {
+            p_next()
+            iels = parse_block()
+        }
+        nat64 ithen = ppop()
+        nat64 icond = ppop()
+        ret ast_if(icond, ithen, iels)
+    }
+
+    // ---- rep ----
+    if cur_tok == TOK_REP {
+        p_next()
+        if cur_tok == TOK_NUMBER {
+            ppush(cur_val)
+            p_next()
+            nat64 rbody = parse_block()
+            nat64 rcnt = ppop()
+            ret ast_repcount(rcnt, rbody)
+        }
+        ppush(parse_expr())
+        nat64 cbody = parse_block()
+        nat64 ccond = ppop()
+        ret ast_repcond(ccond, cbody)
+    }
+
+    // ---- ret ----
+    if cur_tok == TOK_RET {
+        p_next()
+        if cur_tok == TOK_NEWLINE || cur_tok == TOK_RBRACE || cur_tok == TOK_EOF {
+            ret ast_return(0)
+        }
+        ret ast_return(parse_expr())
+    }
+
+    if cur_tok == TOK_IDENT {
+        ppush(cur_ptr)
+        ppush(cur_len)
+        p_next()
+
+        if cur_tok == TOK_EQUAL {
+            p_next()
+            nat64 sv = parse_expr()
+            nat64 sl = ppop()
+            nat64 sp2 = ppop()
+            ret ast_assign(sp2, sl, sv)
+        }
+
+        if cur_tok == TOK_LPAREN {
+            nat64 sa = parse_call_args()
+            nat64 cl = ppop()
+            nat64 cp = ppop()
+            ret ast_call(cp, cl, sa)
+        }
+
+        if cur_tok == TOK_LBRACK {
+            p_next()
+            ppush(parse_expr())
+            p_expect(TOK_RBRACK)
+            p_next()
+            p_expect(TOK_EQUAL)
+            p_next()
+            nat64 av = parse_expr()
+            nat64 ai = ppop()
+            nat64 al = ppop()
+            nat64 ap = ppop()
+            ret ast_arrassign(ap, al, ai, av)
+        }
+
+        p_error("unexpected token after identifier")
+    }
+
+    p_error("unexpected statement")
+    ret 0
+}
+
+parse_params() -> nat64 {
+    ppush(ast_list_new())
+    p_next()
+    rep cur_tok != TOK_RPAREN {
+        ppush(0)
+        if cur_tok == TOK_STAR {
+            pstk[psp - 1] = 1
+            p_next()
+        }
+        if p_is_type(cur_tok) != 1 {
+            p_error("expected parameter type")
+        }
+        ppush(cur_tok)
+        p_next()
+        if cur_tok == TOK_STAR {
+            pstk[psp - 2] = 1
+            p_next()
+        }
+        p_expect(TOK_IDENT)
+        nat64 prm = ast_param(pstk[psp - 1], pstk[psp - 2], cur_ptr, cur_len)
+        ppop()
+        ppop()
+        ast_list_append(pstk[psp - 1], prm)
+        p_next()
+        if cur_tok == TOK_COMMA {
+            p_next()
+        }
+    }
+    p_next()
+    ret ppop()
+}
+
+parse_function() -> nat64 {
+    ppush(cur_ptr)
+    ppush(cur_len)
+    p_next()
+    p_expect(TOK_LPAREN)
+    ppush(parse_params())
+    p_skip_nl()
+    ppush(0)
+    ppush(0)
+    if cur_tok == TOK_ARROW {
+        p_next()
+        if cur_tok == TOK_STAR {
+            pstk[psp - 1] = 1
+            p_next()
+        }
+        if p_is_type(cur_tok) != 1 {
+            p_error("expected return type")
+        }
+        pstk[psp - 2] = cur_tok
+        p_next()
+        if cur_tok == TOK_STAR {
+            pstk[psp - 1] = 1
+            p_next()
+        }
+    }
+    nat64 fbody = parse_block()
+    nat64 frp = ppop()
+    nat64 frt = ppop()
+    nat64 fpar = ppop()
+    nat64 fnl = ppop()
+    nat64 fnp = ppop()
+    ret ast_func(fnp, fnl, fpar, fbody, frt, frp)
+}
+
+parse_top_decl() -> nat64 {
+    ppush(cur_tok)
+    ppush(0)
+    p_next()
+    if cur_tok == TOK_STAR {
+        pstk[psp - 1] = 1
+        p_next()
+    }
+    p_expect(TOK_IDENT)
+    ppush(cur_ptr)
+    ppush(cur_len)
+    p_next()
+
+    if cur_tok == TOK_LBRACK {
+        p_next()
+        p_expect(TOK_NUMBER)
+        nat64 gsz = cur_val
+        p_next()
+        p_expect(TOK_RBRACK)
+        p_next()
+        nat64 gal = ppop()
+        nat64 gap = ppop()
+        ppop()
+        nat64 gat = ppop()
+        ret ast_arrdecl(gat, gap, gal, gsz)
+    }
+
+    p_expect(TOK_EQUAL)
+    p_next()
+    nat64 gin = parse_expr()
+    nat64 gnl = ppop()
+    nat64 gnp = ppop()
+    nat64 gip = ppop()
+    nat64 gty = ppop()
+
+    if p_is_const_name(gnp, gnl) == 1 {
+        ret p_make_const(gnp, gnl, gin)
+    }
+    ret ast_globalvar(gty, gip, gnp, gnl)
+}
+
+parse_program() -> nat64 {
+    p_next()
+    ppush(ast_list_new())
+    p_skip_nl()
+    rep cur_tok != TOK_EOF {
+        nat64 hd = 0
+        nat64 top = 0
+
+        if cur_tok == TOK_USE {
+            p_next()
+            p_expect(TOK_STRING)
+            lexer_use_file(cur_ptr, cur_len)
+            p_next()
+            hd = 1
+        }
+
+        if hd == 0 && p_is_type(cur_tok) == 1 {
+            top = parse_top_decl()
+            ast_list_append(pstk[psp - 1], top)
+            hd = 1
+        }
+
+        if hd == 0 && cur_tok == TOK_IDENT {
+            top = parse_function()
+            ast_list_append(pstk[psp - 1], top)
+            hd = 1
+        }
+
+        if hd == 0 {
+            p_error("unexpected token at top level")
+        }
+
+        p_skip_nl()
+    }
+    nat64 plist = ppop()
+    ret ast_program(plist)
+}

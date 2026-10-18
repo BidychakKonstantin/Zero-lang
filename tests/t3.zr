@@ -1,0 +1,7 @@
+main() {
+    chr* s = "hi\n"
+    write_bytes(s, 3)
+    nat8 c = 65
+    write_bytes(&c, 1)
+    ret 0
+}

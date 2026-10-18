@@ -1,0 +1,600 @@
+use "tokens.zr"
+use "std.zr"
+use "ast.zr"
+
+nat64 loc_name_ptr[1024]
+nat64 loc_name_len[1024]
+nat64 loc_off[1024]
+nat64 loc_count = 0
+
+nat64 con_name_ptr[1024]
+nat64 con_name_len[1024]
+nat64 con_value[1024]
+nat64 con_count = 0
+
+nat64 cg_label = 0
+nat64 cg_fn = 0
+nat64 cg_frame = 0
+nat64 cg_nest = 0
+nat64 cg_has_ret = 0
+nat64 cg_str = 0
+nat64 cg_ret_type = 0
+nat64 cg_ret_ptr = 0
+
+ln(nat64 s) -> nat64 {
+    write_str(s)
+    ret emit_nl()
+}
+
+lab(nat64 s, nat64 n) -> nat64 {
+    write_str(s)
+    ret print_uint(n)
+}
+
+labln(nat64 s, nat64 n) -> nat64 {
+    lab(s, n)
+    ret emit_nl()
+}
+
+labdef(nat64 s, nat64 n) -> nat64 {
+    lab(s, n)
+    ret ln(":")
+}
+
+str_eq(nat64 a, nat64 an, nat64 b, nat64 bn) -> nat64 {
+    if an != bn {
+        ret 0
+    }
+    nat64 i = 0
+    rep i != an {
+        if *(a + i) != *(b + i) {
+            ret 0
+        }
+        i = i + 1
+    }
+    ret 1
+}
+
+loc_find(nat64 p, nat64 n) -> nat64 {
+    nat64 i = loc_count
+    rep i != 0 {
+        i = i - 1
+        if str_eq(loc_name_ptr[i], loc_name_len[i], p, n) == 1 {
+            ret i + 1
+        }
+    }
+    ret 0
+}
+
+loc_add(nat64 p, nat64 n, nat64 slots) -> nat64 {
+    cg_frame = cg_frame + slots * 8
+    loc_name_ptr[loc_count] = p
+    loc_name_len[loc_count] = n
+    loc_off[loc_count] = cg_frame
+    loc_count = loc_count + 1
+    ret cg_frame
+}
+
+con_find(nat64 p, nat64 n) -> nat64 {
+    nat64 i = con_count
+    rep i != 0 {
+        i = i - 1
+        if str_eq(con_name_ptr[i], con_name_len[i], p, n) == 1 {
+            ret i + 1
+        }
+    }
+    ret 0
+}
+
+con_add(nat64 p, nat64 n, nat64 v) -> nat64 {
+    con_name_ptr[con_count] = p
+    con_name_len[con_count] = n
+    con_value[con_count] = v
+    con_count = con_count + 1
+    ret 0
+}
+
+const_eval(nat64 node) -> nat64 {
+    nat64 k = ast_kind[node]
+    if k == TOK_ND_NUM {
+        ret ast_a[node]
+    }
+    if k == TOK_ND_CHAR {
+        ret ast_a[node]
+    }
+    if k == TOK_ND_IDENT {
+        nat64 ci = con_find(ast_name_ptr[node], ast_name_len[node])
+        if ci != 0 {
+            ret con_value[ci - 1]
+        }
+    }
+    ret 0
+}
+
+emit_var(nat64 p, nat64 n) -> nat64 {
+    nat64 li = loc_find(p, n)
+    if li == 0 {
+        ret write_bytes(p, n)
+    }
+    write_str("rbp - ")
+    ret print_uint(loc_off[li - 1])
+}
+
+argreg(nat64 i) -> nat64 {
+    if i == 0 {
+        ret write_str("rdi")
+    }
+    if i == 1 {
+        ret write_str("rsi")
+    }
+    if i == 2 {
+        ret write_str("rdx")
+    }
+    if i == 3 {
+        ret write_str("rcx")
+    }
+    if i == 4 {
+        ret write_str("r8")
+    }
+    ret write_str("r9")
+}
+
+gen_pop_args(nat64 count) -> nat64 {
+    nat64 i = count
+    rep i != 0 {
+        i = i - 1
+        ln("    pop rax")
+        write_str("    mov ")
+        argreg(i)
+        ln(", rax")
+    }
+    ret 0
+}
+
+gen_cmp(nat64 s) -> nat64 {
+    ln("    pop rbx")
+    ln("    cmp rbx, rax")
+    write_str("    ")
+    write_str(s)
+    ln(" al")
+    ret ln("    movzx rax, al")
+}
+
+gen_binop_tail(nat64 op) -> nat64 {
+    if op == TOK_PLUS {
+        ln("    pop rbx")
+        ret ln("    add rax, rbx")
+    }
+    if op == TOK_MINUS {
+        ln("    pop rbx")
+        ln("    mov rcx, rax")
+        ln("    mov rax, rbx")
+        ret ln("    sub rax, rcx")
+    }
+    if op == TOK_STAR {
+        ln("    pop rbx")
+        ret ln("    imul rax, rbx")
+    }
+    if op == TOK_SLASH {
+        ln("    pop rbx")
+        ln("    xchg rax, rbx")
+        ln("    xor rdx, rdx")
+        ret ln("    div rbx")
+    }
+    if op == TOK_EQEQ {
+        ret gen_cmp("sete")
+    }
+    if op == TOK_NOTEQ {
+        ret gen_cmp("setne")
+    }
+    if op == TOK_LT {
+        ret gen_cmp("setl")
+    }
+    if op == TOK_GT {
+        ret gen_cmp("setg")
+    }
+    if op == TOK_LTE {
+        ret gen_cmp("setle")
+    }
+    if op == TOK_GTE {
+        ret gen_cmp("setge")
+    }
+    if op == TOK_ANDAND {
+        ln("    pop rbx")
+        ln("    test rax, rax")
+        ln("    setne al")
+        ln("    test rbx, rbx")
+        ln("    setne bl")
+        ln("    and al, bl")
+        ret ln("    movzx rax, al")
+    }
+    if op == TOK_OROR {
+        ln("    pop rbx")
+        ln("    or rax, rbx")
+        ln("    test rax, rax")
+        ln("    setne al")
+        ret ln("    movzx rax, al")
+    }
+    ret 0
+}
+
+gen_string(nat64 node) -> nat64 {
+    nat64 idx = cg_str
+    cg_str = cg_str + 1
+    ln("section .rodata")
+    lab("str_", idx)
+    write_str(": db ")
+    nat64 p = ast_name_ptr[node]
+    nat64 n = ast_name_len[node]
+    nat64 i = 0
+    rep i < n {
+        nat64 c = *(p + i)
+        if c == 92 {
+            i = i + 1
+            nat64 e = *(p + i)
+            c = e
+            if e == 'n' {
+                c = 10
+            }
+            if e == 't' {
+                c = 9
+            }
+            if e == 'r' {
+                c = 13
+            }
+            if e == '0' {
+                c = 0
+            }
+        }
+        print_uint(c)
+        write_str(", ")
+        i = i + 1
+    }
+    ln("0")
+    ln("section .text")
+    lab("    lea rax, [rel str_", idx)
+    ret ln("]")
+}
+
+gen_print() -> nat64 {
+    nat64 lb = cg_label
+    cg_label = cg_label + 1
+    ln("    sub rsp, 32")
+    ln("    mov r8, rsp")
+    ln("    add r8, 31")
+    ln("    mov byte [r8], 10")
+    ln("    mov r9, r8")
+    ln("    test rax, rax")
+    labln("    jnz L_pr_c_", lb)
+    ln("    dec r8")
+    ln("    mov byte [r8], '0'")
+    labln("    jmp L_pr_o_", lb)
+    labdef("L_pr_c_", lb)
+    ln("    mov r10, 10")
+    labdef("L_pr_l_", lb)
+    ln("    test rax, rax")
+    labln("    jz L_pr_o_", lb)
+    ln("    xor rdx, rdx")
+    ln("    div r10")
+    ln("    add dl, '0'")
+    ln("    dec r8")
+    ln("    mov [r8], dl")
+    labln("    jmp L_pr_l_", lb)
+    labdef("L_pr_o_", lb)
+    ln("    mov eax, 1")
+    ln("    mov edi, 1")
+    ln("    mov rsi, r8")
+    ln("    mov rdx, r9")
+    ln("    inc rdx")
+    ln("    sub rdx, r8")
+    ln("    syscall")
+    ret ln("    add rsp, 32")
+}
+
+gen_call(nat64 node) -> nat64 {
+    if str_eq(ast_name_ptr[node], ast_name_len[node], "print", 5) == 1 {
+        nat64 first = ast_list_first(ast_a[node])
+        if first == 0 {
+            ln("    mov rax, 0")
+        }
+        if first != 0 {
+            gen_expr(first)
+        }
+        ret gen_print()
+    }
+    nat64 cur = ast_list_first(ast_a[node])
+    nat64 count = 0
+    rep cur != 0 {
+        gen_expr(cur)
+        ln("    push rax")
+        count = count + 1
+        cur = ast_next[cur]
+    }
+    gen_pop_args(count)
+    write_str("    call ")
+    write_bytes(ast_name_ptr[node], ast_name_len[node])
+    ret emit_nl()
+}
+
+gen_expr(nat64 node) -> nat64 {
+    nat64 kind = ast_kind[node]
+
+    if kind == TOK_ND_NUM || kind == TOK_ND_CHAR || kind == TOK_ND_BOOL {
+        write_str("    mov rax, ")
+        print_uint(ast_a[node])
+        ret emit_nl()
+    }
+    if kind == TOK_ND_NULL {
+        ret ln("    mov rax, 0")
+    }
+    if kind == TOK_ND_STRING {
+        ret gen_string(node)
+    }
+    if kind == TOK_ND_IDENT {
+        nat64 li = loc_find(ast_name_ptr[node], ast_name_len[node])
+        nat64 ci = con_find(ast_name_ptr[node], ast_name_len[node])
+        if li == 0 && ci != 0 {
+            write_str("    mov rax, ")
+            print_uint(con_value[ci - 1])
+            ret emit_nl()
+        }
+        write_str("    mov rax, QWORD [")
+        emit_var(ast_name_ptr[node], ast_name_len[node])
+        ret ln("]")
+    }
+    if kind == TOK_ND_INDEX {
+        gen_expr(ast_a[node])
+        ln("    mov r11, rax")
+        write_str("    mov rax, QWORD [")
+        emit_var(ast_name_ptr[node], ast_name_len[node])
+        ret ln(" + r11 * 8]")
+    }
+    if kind == TOK_ND_UNARY {
+        if ast_c[node] == TOK_STAR {
+            gen_expr(ast_a[node])
+            ret ln("    movzx rax, byte [rax]")
+        }
+        nat64 opd = ast_a[node]
+        write_str("    lea rax, [")
+        emit_var(ast_name_ptr[opd], ast_name_len[opd])
+        ret ln("]")
+    }
+    if kind == TOK_ND_BINOP {
+        gen_expr(ast_a[node])
+        ln("    push rax")
+        gen_expr(ast_b[node])
+        ret gen_binop_tail(ast_c[node])
+    }
+    if kind == TOK_ND_CALL {
+        ret gen_call(node)
+    }
+    ret 0
+}
+
+gen_truncate() -> nat64 {
+    if cg_ret_ptr == 1 {
+        ret 0
+    }
+    nat64 t = cg_ret_type
+    if t == TOK_INT8 {
+        ln("    movsx rax, al")
+    }
+    if t == TOK_NAT8 || t == TOK_CHR || t == TOK_BOOL {
+        ln("    movzx rax, al")
+    }
+    if t == TOK_INT16 {
+        ln("    movsx rax, ax")
+    }
+    if t == TOK_NAT16 {
+        ln("    movzx rax, ax")
+    }
+    if t == TOK_INT32 {
+        ln("    cdqe")
+    }
+    if t == TOK_NAT32 {
+        ln("    mov eax, eax")
+    }
+    ret 0
+}
+
+gen_stmt(nat64 node) -> nat64 {
+    nat64 kind = ast_kind[node]
+
+    if kind == TOK_ND_VARDECL {
+        nat64 off = loc_add(ast_name_ptr[node], ast_name_len[node], 1)
+        gen_expr(ast_b[node])
+        write_str("    mov QWORD [rbp - ")
+        print_uint(off)
+        ret ln("], rax")
+    }
+    if kind == TOK_ND_ARRDECL {
+        loc_add(ast_name_ptr[node], ast_name_len[node], ast_d[node])
+        ret 0
+    }
+    if kind == TOK_ND_ASSIGN {
+        gen_expr(ast_a[node])
+        write_str("    mov QWORD [")
+        emit_var(ast_name_ptr[node], ast_name_len[node])
+        ret ln("], rax")
+    }
+    if kind == TOK_ND_ARRASSIGN {
+        gen_expr(ast_a[node])
+        ln("    push rax")
+        gen_expr(ast_b[node])
+        ln("    mov r12, rax")
+        ln("    pop r11")
+        write_str("    mov QWORD [")
+        emit_var(ast_name_ptr[node], ast_name_len[node])
+        ret ln(" + r11 * 8], r12")
+    }
+    if kind == TOK_ND_IF {
+        gen_expr(ast_a[node])
+        nat64 lb = cg_label
+        cg_label = cg_label + 1
+        ln("    test rax, rax")
+        labln("    jz L_if_else_", lb)
+        cg_nest = cg_nest + 1
+        gen_block(ast_b[node])
+        if ast_c[node] != 0 {
+            labln("    jmp L_if_end_", lb)
+            labdef("L_if_else_", lb)
+            gen_block(ast_c[node])
+        } else {
+            labdef("L_if_else_", lb)
+        }
+        cg_nest = cg_nest - 1
+        ret labdef("L_if_end_", lb)
+    }
+    if kind == TOK_ND_REPCOUNT {
+        nat64 lb = cg_label
+        cg_label = cg_label + 1
+        write_str("    mov rax, ")
+        print_uint(ast_a[node])
+        emit_nl()
+        ln("    push rax")
+        labdef("L_rep_start_", lb)
+        ln("    cmp qword [rsp], 0")
+        labln("    jle L_rep_end_", lb)
+        cg_nest = cg_nest + 1
+        gen_block(ast_b[node])
+        cg_nest = cg_nest - 1
+        ln("    dec qword [rsp]")
+        labln("    jmp L_rep_start_", lb)
+        labdef("L_rep_end_", lb)
+        ret ln("    add rsp, 8")
+    }
+    if kind == TOK_ND_REPCOND {
+        nat64 lb = cg_label
+        cg_label = cg_label + 1
+        labdef("L_rep_start_", lb)
+        gen_expr(ast_a[node])
+        ln("    test rax, rax")
+        labln("    jz L_rep_end_", lb)
+        cg_nest = cg_nest + 1
+        gen_block(ast_b[node])
+        cg_nest = cg_nest - 1
+        labln("    jmp L_rep_start_", lb)
+        ret labdef("L_rep_end_", lb)
+    }
+    if kind == TOK_ND_RETURN {
+        if ast_a[node] == 0 {
+            ln("    mov rax, 0")
+        } else {
+            gen_expr(ast_a[node])
+        }
+        gen_truncate()
+        ln("    leave")
+        ln("    ret")
+        if cg_nest == 0 {
+            cg_has_ret = 1
+        }
+        ret 0
+    }
+    ret gen_expr(node)
+}
+
+gen_block(nat64 list_id) -> nat64 {
+    nat64 cur = ast_list_first(list_id)
+    rep cur != 0 {
+        gen_stmt(cur)
+        cur = ast_next[cur]
+    }
+    ret 0
+}
+
+gen_func(nat64 f) -> nat64 {
+    cg_fn = cg_fn + 1
+    cg_frame = 0
+    loc_count = 0
+    cg_has_ret = 0
+    cg_nest = 0
+    cg_ret_type = ast_c[f]
+    cg_ret_ptr = ast_d[f]
+    write_bytes(ast_name_ptr[f], ast_name_len[f])
+    ln(":")
+    ln("    push rbp")
+    ln("    mov rbp, rsp")
+    labln("    sub rsp, strict dword FRAME_", cg_fn)
+    nat64 cur = ast_list_first(ast_a[f])
+    nat64 idx = 0
+    rep cur != 0 {
+        nat64 off = loc_add(ast_name_ptr[cur], ast_name_len[cur], 1)
+        write_str("    mov rax, ")
+        argreg(idx)
+        emit_nl()
+        write_str("    mov QWORD [rbp - ")
+        print_uint(off)
+        ln("], rax")
+        idx = idx + 1
+        cur = ast_next[cur]
+    }
+    gen_block(ast_b[f])
+    if cg_has_ret == 0 {
+        ln("    mov rax, 0")
+        ln("    leave")
+        ln("    ret")
+    }
+    lab("FRAME_", cg_fn)
+    write_str(" equ ")
+    print_uint((cg_frame + 15) / 16 * 16)
+    ret emit_nl()
+}
+
+gen_global(nat64 node, nat64 n) -> nat64 {
+    ln("section .bss")
+    write_bytes(ast_name_ptr[node], ast_name_len[node])
+    write_str(": resq ")
+    print_uint(n)
+    emit_nl()
+    ret ln("section .text")
+}
+
+gen_program(nat64 prog) -> nat64 {
+    ln("default rel")
+    ln("")
+    ln("extern write_bytes")
+    ln("extern write_err")
+    ln("extern syscall2")
+    ln("extern read_file")
+    ln("extern get_arg")
+    ln("extern arg_count")
+    ln("extern runtime_init")
+    ln("extern poke8")
+    ln("")
+    ln("global _start")
+    ln("_start:")
+    ln("    mov rdi, rsp")
+    ln("    call runtime_init")
+    ln("    call main")
+    ln("    mov edi, eax")
+    ln("    mov eax, 60")
+    ln("    syscall")
+    ln("")
+    nat64 top = ast_a[prog]
+    nat64 cur = ast_list_first(top)
+    rep cur != 0 {
+        if ast_kind[cur] == TOK_ND_CONST {
+            con_add(ast_name_ptr[cur], ast_name_len[cur], const_eval(ast_a[cur]))
+        }
+        cur = ast_next[cur]
+    }
+    cur = ast_list_first(top)
+    rep cur != 0 {
+        nat64 k = ast_kind[cur]
+        if k == TOK_ND_GLOBALVAR {
+            gen_global(cur, 1)
+        }
+        if k == TOK_ND_ARRDECL {
+            gen_global(cur, ast_d[cur])
+        }
+        cur = ast_next[cur]
+    }
+    cur = ast_list_first(top)
+    rep cur != 0 {
+        if ast_kind[cur] == TOK_ND_FUNC {
+            gen_func(cur)
+        }
+        cur = ast_next[cur]
+    }
+    ret 0
+}

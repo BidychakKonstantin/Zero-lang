@@ -17,8 +17,12 @@ extern string_len
 extern current_number
 extern token_value
 
+extern path_buffer
+
 extern codegen_set_global
 extern codegen_set_local
+extern codegen_set_offset
+extern codegen_alloc_local
 
 extern codegen_function_start
 extern codegen_function_end
@@ -147,8 +151,11 @@ msg_use:
 msg_use_len equ $ - msg_use
 
 msg_use_file:
-    db "Error: Could not open file in use", 10
+    db "Error: Could not open file in use: "
 msg_use_file_len equ $ - msg_use_file
+
+msg_nl:
+    db 10
 
 msg_symtab:
     db "Internal Error: symbol table full", 10
@@ -216,6 +223,34 @@ s_write_bytes_name:
     db "write_bytes"
 s_write_bytes_name_len equ $ - s_write_bytes_name
 
+s_write_err_name:
+    db "write_err"
+s_write_err_name_len equ $ - s_write_err_name
+
+s_syscall2_name:
+    db "syscall2"
+s_syscall2_name_len equ $ - s_syscall2_name
+
+s_read_file_name:
+    db "read_file"
+s_read_file_name_len equ $ - s_read_file_name
+
+s_get_arg_name:
+    db "get_arg"
+s_get_arg_name_len equ $ - s_get_arg_name
+
+s_arg_count_name:
+    db "arg_count"
+s_arg_count_name_len equ $ - s_arg_count_name
+
+s_runtime_init_name:
+    db "runtime_init"
+s_runtime_init_name_len equ $ - s_runtime_init_name
+
+s_poke8_name:
+    db "poke8"
+s_poke8_name_len equ $ - s_poke8_name
+
 section .bss
 
 align 8
@@ -270,6 +305,30 @@ call_arg_count:
 
 section .text
 
+parser_add_builtin:
+
+    mov rcx, [rel symbol_count]
+
+    imul rcx, SYM_SIZE
+
+    lea rax, [rel symbol_table]
+
+    add rax, rcx
+
+    mov [rax + SYM_NAME_PTR], rdi
+    mov [rax + SYM_NAME_LEN], rsi
+
+    mov qword [rax + SYM_TYPE], 0
+    mov qword [rax + SYM_KIND], SYM_FUNC
+
+    mov [rax + SYM_VALUE], rdx
+
+    mov qword [rax + SYM_SCOPE], SCOPE_LOCAL
+
+    inc qword [rel symbol_count]
+
+    ret
+
 parser_parse:
 
     xor eax, eax
@@ -285,18 +344,45 @@ parser_parse:
 
     mov [rel assign_symbol], rax
 
-    lea rdi, [rel symbol_table]
+    lea rdi, [rel s_write_bytes_name]
+    mov esi, s_write_bytes_name_len
+    mov edx, 2
+    call parser_add_builtin
 
-    lea rax, [rel s_write_bytes_name]
-    mov [rdi + SYM_NAME_PTR], rax
+    lea rdi, [rel s_write_err_name]
+    mov esi, s_write_err_name_len
+    mov edx, 2
+    call parser_add_builtin
 
-    mov qword [rdi + SYM_NAME_LEN], s_write_bytes_name_len
-    mov qword [rdi + SYM_TYPE], 0
-    mov qword [rdi + SYM_KIND], SYM_FUNC
-    mov qword [rdi + SYM_VALUE], 2
-    mov qword [rdi + SYM_SCOPE], SCOPE_LOCAL
+    lea rdi, [rel s_syscall2_name]
+    mov esi, s_syscall2_name_len
+    mov edx, 2
+    call parser_add_builtin
 
-    mov qword [rel symbol_count], 1
+    lea rdi, [rel s_read_file_name]
+    mov esi, s_read_file_name_len
+    mov edx, 3
+    call parser_add_builtin
+
+    lea rdi, [rel s_get_arg_name]
+    mov esi, s_get_arg_name_len
+    mov edx, 1
+    call parser_add_builtin
+
+    lea rdi, [rel s_arg_count_name]
+    mov esi, s_arg_count_name_len
+    mov edx, 0
+    call parser_add_builtin
+
+    lea rdi, [rel s_runtime_init_name]
+    mov esi, s_runtime_init_name_len
+    mov edx, 1
+    call parser_add_builtin
+
+    lea rdi, [rel s_poke8_name]
+    mov esi, s_poke8_name_len
+    mov edx, 2
+    call parser_add_builtin
 
     call parser_next
 
@@ -331,6 +417,57 @@ parser_expect_lbrace:
 
     cmp qword [rel current_token], TOK_LBRACE
     jne parser_error_lbrace
+
+    ret
+
+parser_select_symbol:
+
+    cmp qword [rax + SYM_SCOPE], SCOPE_GLOBAL
+    je .global
+
+    mov rdi, [rax + SYM_VALUE]
+
+    call codegen_set_offset
+
+    call codegen_set_local
+
+    ret
+
+.global:
+
+    call codegen_set_global
+
+    ret
+
+parser_select_last_symbol:
+
+    mov rcx, [rel symbol_count]
+
+    dec rcx
+
+    imul rcx, SYM_SIZE
+
+    lea rax, [rel symbol_table]
+
+    add rax, rcx
+
+    jmp parser_select_symbol
+
+parser_alloc_local:
+
+    call codegen_alloc_local
+
+    mov rcx, [rel symbol_count]
+
+    dec rcx
+
+    imul rcx, SYM_SIZE
+
+    lea r10, [rel symbol_table]
+
+    add r10, rcx
+
+    mov [r10 + SYM_VALUE], rax
 
     ret
 
@@ -976,21 +1113,9 @@ parser_args_loop:
 
     call parser_add_symbol
 
-    mov rcx, [rel symbol_count]
+    mov edi, 1
 
-    dec rcx
-
-    imul rcx, SYM_SIZE
-
-    lea r10, [rel symbol_table]
-
-    add r10, rcx
-
-    mov qword [r10 + SYM_SCOPE], SCOPE_LOCAL
-
-    call codegen_set_local
-
-    call codegen_declare_variable
+    call parser_alloc_local
 
     mov r10, [rel current_function]
 
@@ -998,7 +1123,7 @@ parser_args_loop:
 
     call codegen_load_arg_register
 
-    call codegen_set_local
+    call parser_select_last_symbol
 
     call codegen_store_variable
 
@@ -1182,6 +1307,10 @@ parser_body_ident:
 
 parser_assign_array_element:
 
+    push qword [rel decl_name_ptr]
+
+    push qword [rel decl_name_len]
+
     call parser_next
 
     call parser_expression
@@ -1200,6 +1329,10 @@ parser_assign_array_element:
 
     call parser_expression
 
+    pop qword [rel decl_name_len]
+
+    pop qword [rel decl_name_ptr]
+
     mov rax, [rel decl_name_ptr]
     mov [rel ident_ptr], rax
 
@@ -1210,17 +1343,7 @@ parser_assign_array_element:
     test rax, rax
     jz parser_error_undefined
 
-    cmp qword [rax + SYM_SCOPE], SCOPE_GLOBAL
-    je .global
-
-    call codegen_set_local
-    jmp .emit
-
-.global:
-
-    call codegen_set_global
-
-.emit:
+    call parser_select_symbol
 
     mov rax, [rel decl_name_ptr]
     mov [rel ident_ptr], rax
@@ -1255,37 +1378,13 @@ parser_assign_variable:
 
     mov [rel assign_symbol], rax
 
-    cmp qword [rax + SYM_SCOPE], SCOPE_GLOBAL
-    je .lhs_global
-
-    call codegen_set_local
-
-    jmp .parse_rhs
-
-.lhs_global:
-
-    call codegen_set_global
-
-.parse_rhs:
-
     call parser_next
 
     call parser_expression
 
-    mov r10, [rel assign_symbol]
+    mov rax, [rel assign_symbol]
 
-    cmp qword [r10 + SYM_SCOPE], SCOPE_GLOBAL
-    je .store_global
-
-    call codegen_set_local
-
-    jmp .store
-
-.store_global:
-
-    call codegen_set_global
-
-.store:
+    call parser_select_symbol
 
     mov rax, [rel decl_name_ptr]
 
@@ -1403,27 +1502,15 @@ parser_variable:
 
     call parser_add_symbol
 
-    mov rcx, [rel symbol_count]
+    mov edi, 1
 
-    dec rcx
-
-    imul rcx, SYM_SIZE
-
-    lea r10, [rel symbol_table]
-
-    add r10, rcx
-
-    mov qword [r10 + SYM_SCOPE], SCOPE_LOCAL
-
-    call codegen_set_local
-
-    call codegen_declare_variable
+    call parser_alloc_local
 
     call parser_next
 
     call parser_expression
 
-    call codegen_set_local
+    call parser_select_last_symbol
 
     mov rax, [rel decl_name_ptr]
 
@@ -1469,28 +1556,9 @@ parser_local_array:
 
     call parser_add_symbol
 
-    mov rcx, [rel symbol_count]
-    dec rcx
-    imul rcx, SYM_SIZE
-
-    lea r10, [rel symbol_table]
-    add r10, rcx
-
-    mov qword [r10 + SYM_SCOPE], SCOPE_LOCAL
-
-    mov rax, [rel temp_value]
-    mov [r10 + SYM_VALUE], rax
-
-    call codegen_set_local
-
-    mov rax, [rel decl_name_ptr]
-    mov [rel ident_ptr], rax
-
-    mov rax, [rel decl_name_len]
-    mov [rel ident_len], rax
-
     mov rdi, [rel temp_value]
-    call codegen_declare_array
+
+    call parser_alloc_local
 
     call parser_next
 
@@ -1517,6 +1585,8 @@ parser_return:
 
     call parser_expression
 
+    jmp .emit
+
 .bare:
 
     xor eax, eax
@@ -1525,6 +1595,8 @@ parser_return:
     mov [rel token_value], rax
 
     call codegen_load_number
+
+.emit:
 
     call parser_emit_return_truncation
 
@@ -1878,20 +1950,11 @@ parser_unary_addr:
     jne parser_error_ident
 
     call parser_find_symbol
+
     test rax, rax
     jz parser_error_undefined
 
-    cmp qword [rax + SYM_SCOPE], SCOPE_GLOBAL
-    je .global
-
-    call codegen_set_local
-    jmp .emit
-
-.global:
-
-    call codegen_set_global
-
-.emit:
+    call parser_select_symbol
 
     call codegen_load_address
 
@@ -2086,7 +2149,7 @@ parser_primary_identifier:
     je parser_primary_variable
 
     cmp qword [rax + SYM_KIND], SYM_GLOBAL_VAR
-    je parser_primary_global_variable
+    je parser_primary_variable
 
     cmp qword [rax + SYM_KIND], SYM_CONST
     je parser_primary_constant
@@ -2095,23 +2158,9 @@ parser_primary_identifier:
 
 parser_primary_variable:
 
-    call codegen_set_local
+    mov rax, [rel expr_symbol]
 
-    mov rax, [rel expr_name_ptr]
-
-    mov [rel ident_ptr], rax
-
-    mov rax, [rel expr_name_len]
-
-    mov [rel ident_len], rax
-
-    call codegen_load_variable
-
-    ret
-
-parser_primary_global_variable:
-
-    call codegen_set_global
+    call parser_select_symbol
 
     mov rax, [rel expr_name_ptr]
 
@@ -2218,13 +2267,21 @@ parser_primary_call_not_print:
 
     test rax, rax
 
-    jz parser_error_undefined
+    jz parser_call_unknown_symbol
 
     cmp qword [rax + SYM_KIND], SYM_FUNC
 
     jne parser_error_not_function
 
     mov [rel current_call_symbol], rax
+
+    jmp parser_call_symbol_ready
+
+parser_call_unknown_symbol:
+
+    mov qword [rel current_call_symbol], 0
+
+parser_call_symbol_ready:
 
     xor eax, eax
 
@@ -2280,6 +2337,10 @@ parser_call_done:
 
     mov r10, [rel current_call_symbol]
 
+    test r10, r10
+
+    jz parser_call_skip_check
+
     mov rcx, [r10 + SYM_VALUE]
 
     mov rax, [rel call_arg_count]
@@ -2287,6 +2348,8 @@ parser_call_done:
     cmp rax, rcx
 
     jne parser_error_call_count
+
+parser_call_skip_check:
 
     call parser_emit_call_arguments
 
@@ -2448,6 +2511,10 @@ parser_emit_arg_rdi:
 
 parser_primary_array:
 
+    push qword [rel expr_name_ptr]
+
+    push qword [rel expr_name_len]
+
     call parser_next
 
     call parser_expression
@@ -2455,6 +2522,10 @@ parser_primary_array:
     cmp qword [rel current_token], TOK_RBRACK
 
     jne parser_error_rbrack
+
+    pop qword [rel expr_name_len]
+
+    pop qword [rel expr_name_ptr]
 
     mov rax, [rel expr_name_ptr]
 
@@ -2472,19 +2543,7 @@ parser_primary_array:
 
     mov [rel expr_symbol], rax
 
-    cmp qword [rax + SYM_KIND], SYM_GLOBAL_VAR
-
-    je .global
-
-    call codegen_set_local
-
-    jmp .emit
-
-.global:
-
-    call codegen_set_global
-
-.emit:
+    call parser_select_symbol
 
     mov rax, [rel expr_name_ptr]
 
@@ -2866,6 +2925,40 @@ parser_error_use_file:
     mov edx, msg_use_file_len
 
     jmp parser_fatal
+
+.len:
+
+    cmp byte [rsi + rdx], 0
+
+    je .out
+
+    inc rdx
+
+    jmp .len
+
+.out:
+
+    mov eax, SYS_WRITE
+
+    mov edi, STDERR
+
+    syscall
+
+    mov eax, SYS_WRITE
+
+    mov edi, STDERR
+
+    lea rsi, [rel msg_nl]
+
+    mov edx, 1
+
+    syscall
+
+    mov eax, SYS_EXIT
+
+    mov edi, 1
+
+    syscall
 
 parser_error_symtab:
 

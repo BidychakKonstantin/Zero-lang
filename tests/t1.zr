@@ -1,0 +1,11 @@
+f(nat64 n) -> nat64 {
+    if n < 2 {
+        ret n
+    }
+    ret f(n - 1) + f(n - 2)
+}
+
+main() {
+    print(f(10))
+    ret 0
+}

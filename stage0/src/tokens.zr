@@ -48,7 +48,7 @@ nat8 TOK_NAT32      = 34
 nat8 TOK_INT64      = 35
 nat8 TOK_NAT64      = 36
 nat8 TOK_BOOL       = 37
-nat8 TOK_TYPE_CHR   = 41   
+nat8 TOK_CHAR   = 41   
 
 nat8 TOK_SPACE       = 32    // ' '
 nat8 TOK_TAB         = 9     // '\t'
@@ -78,5 +78,5 @@ nat8 TOK_EQUAL_CHAR  = 61    // =
 nat8 TOK_LT_CHAR     = 60    // <
 nat8 TOK_GT_CHAR     = 62    // >
 nat8 TOK_BANG_CHAR   = 33    // !
-nat8 TOK_AMP_CHAR    = 38    // &
+nat8 TOK_AMP         = 38    // &
 nat8 TOK_PIPE_CHAR   = 124   // |
