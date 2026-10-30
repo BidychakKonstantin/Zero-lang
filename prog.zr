@@ -1,0 +1,4 @@
+main() {
+    print(42)
+    ret 0
+}
