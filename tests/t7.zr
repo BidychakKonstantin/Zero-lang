@@ -1,0 +1,8 @@
+main() {
+    print(late())
+    ret 0
+}
+
+late() -> nat64 {
+    ret 9
+}

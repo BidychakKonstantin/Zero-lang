@@ -1,0 +1,8 @@
+six(nat64 p1, nat64 p2, nat64 p3, nat64 p4, nat64 p5, nat64 p6) -> nat64 {
+    ret p1 + p2 * 10 + p3 * 100 + p4 * 1000 + p5 * 10000 + p6 * 100000
+}
+
+main() {
+    print(six(1, 2, 3, 4, 5, 6))
+    ret 0
+}

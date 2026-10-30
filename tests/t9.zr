@@ -1,0 +1,19 @@
+fact(nat64 n) -> nat64 {
+    if n < 2 {
+        ret 1
+    }
+    ret n * fact(n - 1)
+}
+
+gcd(nat64 a, nat64 b) -> nat64 {
+    if b == 0 {
+        ret a
+    }
+    ret gcd(b, a - (a / b) * b)
+}
+
+main() {
+    print(fact(10))
+    print(gcd(48, 18))
+    ret 0
+}

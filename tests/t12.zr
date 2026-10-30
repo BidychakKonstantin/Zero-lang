@@ -1,0 +1,8 @@
+main() {
+    nat64 i = 0
+    rep i < 3 {
+        print(i)
+        i = i + 1
+    }
+    ret 0
+}

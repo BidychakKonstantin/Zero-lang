@@ -1,0 +1,6 @@
+use "inc/lib.zr"
+
+main() {
+    print(twice(21))
+    ret 0
+}

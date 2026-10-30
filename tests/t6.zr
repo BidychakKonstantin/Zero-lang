@@ -1,0 +1,19 @@
+main() {
+    nat64 i = 0
+    rep 3 {
+        rep 2 {
+            i = i + 1
+        }
+    }
+    print(i)
+    if i == 6 {
+        if i > 5 {
+            print(1)
+        } else {
+            print(2)
+        }
+    } else {
+        print(3)
+    }
+    ret 0
+}

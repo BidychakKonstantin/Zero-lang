@@ -1,0 +1,8 @@
+nothing() {
+    ret
+}
+
+main() {
+    print(nothing())
+    ret 0
+}

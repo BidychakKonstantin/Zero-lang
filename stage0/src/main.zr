@@ -6,6 +6,10 @@ use "parser.zr"
 use "codegen_ast.zr"
 
 main() -> nat64 {
+    if get_arg(1) == 0 {
+    err_str("Usage: zero <source.zr>\n")
+    ret 1
+}
     lexer_open(get_arg(1))
     nat64 prog = parse_program()
     gen_program(prog)

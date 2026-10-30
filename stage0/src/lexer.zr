@@ -397,7 +397,7 @@ lx_load(nat64 n) -> nat64 {
     lx_file_count = lx_file_count + 1
     nat64 base = &lx_pool + slot * 65536
     nat64 got = read_file(&lx_path, base, 65535)
-    if got > 65535 {
+    if got < 0 {
         lx_fail("cannot open source file")
     }
     poke8(base + got, 0)

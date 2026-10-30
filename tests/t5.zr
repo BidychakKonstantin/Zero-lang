@@ -1,0 +1,16 @@
+nat64 g[3]
+nat64 cnt = 0
+
+bump() -> nat64 {
+    cnt = cnt + 1
+    g[cnt] = cnt * 7
+    ret 0
+}
+
+main() {
+    bump()
+    bump()
+    print(cnt)
+    print(g[1] + g[2])
+    ret 0
+}

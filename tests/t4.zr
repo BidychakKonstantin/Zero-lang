@@ -1,0 +1,18 @@
+a() -> nat8 {
+    ret 300
+}
+
+b() -> nat16 {
+    ret 70000
+}
+
+c() -> nat32 {
+    ret 4294967297
+}
+
+main() {
+    print(a())
+    print(b())
+    print(c())
+    ret 0
+}

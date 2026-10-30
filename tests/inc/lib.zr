@@ -1,0 +1,3 @@
+twice(nat64 x) -> nat64 {
+    ret x * 2
+}

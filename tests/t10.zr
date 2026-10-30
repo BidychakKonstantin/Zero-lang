@@ -1,0 +1,6 @@
+main() {
+    chr* s = "AB"
+    print(*(s + 1))
+    print(*s)
+    ret 0
+}
