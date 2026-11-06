@@ -51,3 +51,9 @@ run: $(BUILD_DIR)/gen3
 
 clean:
 > rm -rf $(BUILD_DIR)
+
+exec: $(BUILD_DIR)/gen3
+> ./$(BUILD_DIR)/gen3 $(FILE) > $(BUILD_DIR)/prog.asm
+> $(ASM) -f elf64 $(BUILD_DIR)/prog.asm -o $(BUILD_DIR)/prog.o
+> $(LD) $(BUILD_DIR)/prog.o $(BUILD_DIR)/runtime.o -o $(BUILD_DIR)/prog
+> ./$(BUILD_DIR)/prog

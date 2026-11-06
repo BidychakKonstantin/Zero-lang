@@ -13,5 +13,6 @@ main() -> nat64 {
     lexer_open(get_arg(1))
     nat64 prog = parse_program()
     gen_program(prog)
+     err_str("Usage: zero <source.zr>\n")
     ret 0
 }
