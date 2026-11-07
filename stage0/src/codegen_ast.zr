@@ -1,6 +1,6 @@
-use "tokens.zr"
-use "std.zr"
-use "ast.zr"
+use tokens
+use std
+use ast
 
 nat64 loc_name_ptr[1024]
 nat64 loc_name_len[1024]

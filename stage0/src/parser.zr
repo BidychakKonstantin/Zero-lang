@@ -1,7 +1,7 @@
-use "tokens.zr"
-use "std.zr"
-use "lexer.zr"
-use "ast.zr"
+use tokens
+use std
+use lexer
+use ast
 
 nat8 TOK_ND_CONST = 24
 
@@ -102,6 +102,7 @@ p_is_const_name(chr* ptr, nat64 len) -> nat8 {
     ret 1
 }
 
+
 p_make_const(chr* np, nat64 nl, nat64 init) -> nat64 {
     nat64 id = ast_new_node()
     ast_kind[id] = TOK_ND_CONST
@@ -110,10 +111,6 @@ p_make_const(chr* np, nat64 nl, nat64 init) -> nat64 {
     ast_a[id] = init
     ret id
 }
-
-// ============================================================
-// ВИРАЗИ
-// ============================================================
 
 parse_expr() -> nat64 {
     ret parse_or()
@@ -192,8 +189,6 @@ parse_unary() -> nat64 {
     ret parse_primary()
 }
 
-// Передумова: cur_tok == TOK_LPAREN. Повертає список аргументів,
-// після ')' переходить до наступного токена.
 parse_call_args() -> nat64 {
     ppush(ast_list_new())
     p_next()
@@ -306,8 +301,6 @@ parse_block() -> nat64 {
 }
 
 parse_stmt() -> nat64 {
-
-    // ---- оголошення змінної / масиву ----
     if p_is_type(cur_tok) == 1 {
         ppush(cur_tok)
         ppush(0)
@@ -544,8 +537,12 @@ parse_program() -> nat64 {
 
         if cur_tok == TOK_USE {
             p_next()
-            p_expect(TOK_STRING)
-            lexer_use_file(cur_ptr, cur_len)
+            if cur_tok == TOK_STRING {
+                lexer_use_file(cur_ptr, cur_len)
+            } else {
+                p_expect(TOK_IDENT)
+                lexer_use_module(cur_ptr, cur_len)
+            }
             p_next()
             hd = 1
         }

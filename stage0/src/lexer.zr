@@ -1,5 +1,5 @@
-use "tokens.zr"
-use "std.zr"
+use tokens
+use std
 
 nat64 token_value = 0
 nat64 token_ptr = 0
@@ -425,4 +425,12 @@ lexer_use_file(nat64 p, nat64 n) -> nat64 {
     }
     at = lx_copy_to_path(p, n, at)
     ret lx_load(at)
+}
+
+lexer_use_module(nat64 p, nat64 n) -> nat64
+{
+   nat64 at = lx_copy_to_path(&lx_dirs + lx_slot * 4096,lx_dirlen[lx_slot],0)
+   at = lx_copy_to_path(p,n,at)
+   at = lx_copy_to_path(".zr",3,at)
+   ret lx_load(at)
 }
