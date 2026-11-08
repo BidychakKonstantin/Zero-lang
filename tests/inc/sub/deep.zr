@@ -1,0 +1,5 @@
+use super lib2
+
+deep(nat64 x) -> nat64 {
+    ret twice2(x) + 1
+}

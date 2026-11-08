@@ -1,10 +1,10 @@
-use "tokens.zr"
-use "std.zr"
-use "lexer.zr"
-use "ast.zr"
-use "parser.zr"
-use "codegen_ast.zr"
-use "../south.zr"
+use tokens
+use std
+use lexer
+use ast
+use parser
+use codegen_ast
+use super south
 
 main() -> nat64 {
     if get_arg(1) == 0 {

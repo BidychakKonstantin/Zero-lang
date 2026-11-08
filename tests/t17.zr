@@ -1,0 +1,6 @@
+use "inc/sub/deep.zr"
+
+main() {
+    print(deep(20))
+    ret 0
+}
