@@ -537,12 +537,26 @@ parse_program() -> nat64 {
 
         if cur_tok == TOK_USE {
             p_next()
+            
+            if cur_tok == TOK_ROOT
+            {
+                is_root = 1
+                p_next() 
+            }
+            
+            if cur_tok == TOK_SUPER
+            {
+                is_super = 1
+                p_next()
+            }
             if cur_tok == TOK_STRING {
                 lexer_use_file(cur_ptr, cur_len)
             } else {
                 p_expect(TOK_IDENT)
                 lexer_use_module(cur_ptr, cur_len)
             }
+            
+            is_super = 0
             p_next()
             hd = 1
         }

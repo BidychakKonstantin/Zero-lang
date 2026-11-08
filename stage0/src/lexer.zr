@@ -22,6 +22,9 @@ nat64 lx_stack_end[32]
 nat64 lx_stack_slot[32]
 nat64 lx_path[512]
 
+nat8  is_super = 0
+nat8  is_root  = 0
+
 lx_fail(nat64 msg) -> nat64 {
     err_str("Error: ")
     err_str(msg)
@@ -150,6 +153,12 @@ lx_keyword(nat64 p, nat64 n) -> nat64 {
     }
     if lx_kw(p, n, "nat64", 5) == 1 {
         ret TOK_NAT64
+    }
+    if lx_kw(p, n, "super", 5) == 1 {
+        ret TOK_SUPER
+    }
+    if lx_kw(p, n, "root", 4) == 1 {
+        ret TOK_ROOT
     }
     ret TOK_IDENT
 }
@@ -427,10 +436,24 @@ lexer_use_file(nat64 p, nat64 n) -> nat64 {
     ret lx_load(at)
 }
 
-lexer_use_module(nat64 p, nat64 n) -> nat64
-{
-   nat64 at = lx_copy_to_path(&lx_dirs + lx_slot * 4096,lx_dirlen[lx_slot],0)
-   at = lx_copy_to_path(p,n,at)
-   at = lx_copy_to_path(".zr",3,at)
-   ret lx_load(at)
+lexer_use_module(nat64 p, nat64 n) -> nat64 {
+    nat64 slot = lx_slot
+    if is_root == 1 {
+        slot = 0
+    }
+    nat64 dl = lx_dirlen[slot]
+    nat64 up = is_super
+    rep up != 0 {
+        if dl > 0 {
+            dl = dl - 1
+            rep dl > 0 && *(&lx_dirs + slot * 4096 + dl - 1) != '/' {
+                dl = dl - 1
+            }
+        }
+        up = up - 1
+    }
+    nat64 at = lx_copy_to_path(&lx_dirs + slot * 4096, dl, 0)
+    at = lx_copy_to_path(p, n, at)
+    at = lx_copy_to_path(".zr", 3, at)
+    ret lx_load(at)
 }

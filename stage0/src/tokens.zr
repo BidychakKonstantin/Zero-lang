@@ -80,3 +80,5 @@ nat8 TOK_GT_CHAR     = 62    // >
 nat8 TOK_BANG_CHAR   = 33    // !
 nat8 TOK_AMP         = 38    // &
 nat8 TOK_PIPE_CHAR   = 124   // |
+nat8 TOK_SUPER       = 105 
+nat8 TOK_ROOT        = 106     
