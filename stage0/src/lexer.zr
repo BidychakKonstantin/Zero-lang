@@ -23,7 +23,6 @@ nat64 lx_stack_slot[32]
 nat64 lx_path[512]
 
 nat8  is_super = 0
-nat8  is_root  = 0
 
 lx_fail(nat64 msg) -> nat64 {
     err_str("Error: ")
@@ -157,9 +156,7 @@ lx_keyword(nat64 p, nat64 n) -> nat64 {
     if lx_kw(p, n, "super", 5) == 1 {
         ret TOK_SUPER
     }
-    if lx_kw(p, n, "root", 4) == 1 {
-        ret TOK_ROOT
-    }
+
     ret TOK_IDENT
 }
 
@@ -438,9 +435,7 @@ lexer_use_file(nat64 p, nat64 n) -> nat64 {
 
 lexer_use_module(nat64 p, nat64 n) -> nat64 {
     nat64 slot = lx_slot
-    if is_root == 1 {
-        slot = 0
-    }
+
     nat64 dl = lx_dirlen[slot]
     nat64 up = is_super
     rep up != 0 {

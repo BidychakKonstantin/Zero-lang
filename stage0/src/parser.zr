@@ -537,12 +537,7 @@ parse_program() -> nat64 {
 
         if cur_tok == TOK_USE {
             p_next()
-            
-            if cur_tok == TOK_ROOT
-            {
-                is_root = 1
-                p_next() 
-            }
+
             
             if cur_tok == TOK_SUPER
             {
