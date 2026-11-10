@@ -1,4 +1,3 @@
-````markdown
 # Zero-lang
 
 A freestanding systems programming language with no external dependencies. The compiler is self-hosting, targets x86-64 Linux, and emits NASM assembly.
@@ -108,4 +107,3 @@ nasm -f elf64 seed/zero.asm -o build/seed.o
 ld build/seed.o build/runtime.o -o build/zero
 ./build/zero stage0/src/main.zr > build/asm1.asm
 ```
-````
