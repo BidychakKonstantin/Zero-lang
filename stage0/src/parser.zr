@@ -70,7 +70,7 @@ p_eq(chr* a, nat64 alen, chr* b, nat64 blen) -> nat8 {
 }
 
 p_is_type(nat64 t) -> nat8 {
-    if t == TOK_INT8 || t == TOK_NAT8 || t == TOK_INT16 || t == TOK_NAT16 || t == TOK_INT32 || t == TOK_NAT32 || t == TOK_INT64 || t == TOK_NAT64 || t == TOK_CHR || t == TOK_BOOL {
+    if t == TOK_INT8 || t == TOK_NAT8 || t == TOK_INT16 || t == TOK_NAT16 || t == TOK_INT32 || t == TOK_NAT32 || t == TOK_INT64 || t == TOK_NAT64 || t == TOK_CHR || t == TOK_BOOL || t == TOK_INT4 || t == TOK_NAT4 {
         ret 1
     }
     ret 0

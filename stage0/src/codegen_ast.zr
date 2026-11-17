@@ -12,6 +12,12 @@ nat64 con_name_len[1024]
 nat64 con_value[1024]
 nat64 con_count = 0
 
+nat64 nib_ptr[256]
+nat64 nib_len[256]
+nat64 nib_sgn[256]
+nat64 nib_count = 0
+nat64 nib_global = 0
+
 nat64 cg_label = 0
 nat64 cg_fn = 0
 nat64 cg_frame = 0
@@ -92,6 +98,29 @@ con_add(nat64 p, nat64 n, nat64 v) -> nat64 {
     con_value[con_count] = v
     con_count = con_count + 1
     ret 0
+}
+
+nib_find(nat64 p, nat64 n) -> nat64 {
+    nat64 i = nib_count
+    rep i != 0 {
+        i = i - 1
+        if str_eq(nib_ptr[i], nib_len[i], p, n) == 1 {
+            ret i + 1
+        }
+    }
+    ret 0
+}
+
+nib_add(nat64 p, nat64 n, nat64 sgn) -> nat64 {
+    nib_ptr[nib_count] = p
+    nib_len[nib_count] = n
+    nib_sgn[nib_count] = sgn
+    nib_count = nib_count + 1
+    ret 0
+}
+
+is_nib_type(nat64 t) -> nat64 {
+    ret t == TOK_NAT4 || t == TOK_INT4
 }
 
 const_eval(nat64 node) -> nat64 {
@@ -316,6 +345,50 @@ gen_call(nat64 node) -> nat64 {
     ret emit_nl()
 }
 
+gen_nib_load(nat64 node, nat64 nb) -> nat64 {
+    gen_expr(ast_a[node])
+    ln("    mov r11, rax")
+    ln("    shr rax, 1")
+    write_str("    movzx rax, byte [")
+    emit_var(ast_name_ptr[node], ast_name_len[node])
+    ln(" + rax]")
+    ln("    mov rcx, r11")
+    ln("    and rcx, 1")
+    ln("    shl rcx, 2")
+    ln("    shr rax, cl")
+    if nib_sgn[nb - 1] == 1 {
+        ln("    shl rax, 60")
+        ret ln("    sar rax, 60")
+    }
+    ret ln("    and rax, 15")
+}
+
+gen_nib_store(nat64 node) -> nat64 {
+    gen_expr(ast_a[node])
+    ln("    push rax")
+    gen_expr(ast_b[node])
+    ln("    mov r12, rax")
+    ln("    pop r11")
+    ln("    mov rcx, r11")
+    ln("    and rcx, 1")
+    ln("    shl rcx, 2")
+    ln("    mov rdx, r11")
+    ln("    shr rdx, 1")
+    ln("    and r12, 15")
+    ln("    mov rbx, 15")
+    ln("    shl rbx, cl")
+    ln("    not rbx")
+    ln("    shl r12, cl")
+    write_str("    movzx rax, byte [")
+    emit_var(ast_name_ptr[node], ast_name_len[node])
+    ln(" + rdx]")
+    ln("    and rax, rbx")
+    ln("    or rax, r12")
+    write_str("    mov byte [")
+    emit_var(ast_name_ptr[node], ast_name_len[node])
+    ret ln(" + rdx], al")
+}
+
 gen_expr(nat64 node) -> nat64 {
     nat64 kind = ast_kind[node]
 
@@ -343,6 +416,10 @@ gen_expr(nat64 node) -> nat64 {
         ret ln("]")
     }
     if kind == TOK_ND_INDEX {
+        nat64 nb = nib_find(ast_name_ptr[node], ast_name_len[node])
+        if nb != 0 {
+            ret gen_nib_load(node, nb)
+        }
         gen_expr(ast_a[node])
         ln("    mov r11, rax")
         write_str("    mov rax, QWORD [")
@@ -376,6 +453,13 @@ gen_truncate() -> nat64 {
         ret 0
     }
     nat64 t = cg_ret_type
+    if t == TOK_NAT4 {
+        ln("    and rax, 15")
+    }
+    if t == TOK_INT4 {
+        ln("    shl rax, 60")
+        ln("    sar rax, 60")
+    }
     if t == TOK_INT8 {
         ln("    movsx rax, al")
     }
@@ -408,7 +492,12 @@ gen_stmt(nat64 node) -> nat64 {
         ret ln("], rax")
     }
     if kind == TOK_ND_ARRDECL {
-        loc_add(ast_name_ptr[node], ast_name_len[node], ast_d[node])
+        nat64 slots = ast_d[node]
+        if is_nib_type(ast_a[node]) == 1 {
+            slots = (ast_d[node] + 15) / 16
+            nib_add(ast_name_ptr[node], ast_name_len[node], ast_a[node] == TOK_INT4)
+        }
+        loc_add(ast_name_ptr[node], ast_name_len[node], slots)
         ret 0
     }
     if kind == TOK_ND_ASSIGN {
@@ -418,6 +507,9 @@ gen_stmt(nat64 node) -> nat64 {
         ret ln("], rax")
     }
     if kind == TOK_ND_ARRASSIGN {
+        if nib_find(ast_name_ptr[node], ast_name_len[node]) != 0 {
+            ret gen_nib_store(node)
+        }
         gen_expr(ast_a[node])
         ln("    push rax")
         gen_expr(ast_b[node])
@@ -506,6 +598,7 @@ gen_func(nat64 f) -> nat64 {
     cg_fn = cg_fn + 1
     cg_frame = 0
     loc_count = 0
+    nib_count = nib_global
     cg_has_ret = 0
     cg_nest = 0
     cg_ret_type = ast_c[f]
@@ -585,10 +678,16 @@ gen_program(nat64 prog) -> nat64 {
             gen_global(cur, 1)
         }
         if k == TOK_ND_ARRDECL {
-            gen_global(cur, ast_d[cur])
+            if is_nib_type(ast_a[cur]) == 1 {
+                nib_add(ast_name_ptr[cur], ast_name_len[cur], ast_a[cur] == TOK_INT4)
+                gen_global(cur, (ast_d[cur] + 15) / 16)
+            } else {
+                gen_global(cur, ast_d[cur])
+            }
         }
         cur = ast_next[cur]
     }
+    nib_global = nib_count
     cur = ast_list_first(top)
     rep cur != 0 {
         if ast_kind[cur] == TOK_ND_FUNC {

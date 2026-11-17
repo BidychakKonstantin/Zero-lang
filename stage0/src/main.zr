@@ -4,7 +4,6 @@ use lexer
 use ast
 use parser
 use codegen_ast
-use super south
 
 main() -> nat64 {
     if get_arg(1) == 0 {

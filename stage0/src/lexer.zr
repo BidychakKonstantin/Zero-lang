@@ -129,6 +129,12 @@ lx_keyword(nat64 p, nat64 n) -> nat64 {
     if lx_kw(p, n, "NULL", 4) == 1 {
         ret TOK_NULL
     }
+    if lx_kw(p, n, "int4", 4) == 1 {
+        ret TOK_INT4
+    }
+    if lx_kw(p, n, "nat4", 4) == 1 {
+        ret TOK_NAT4
+    }
     if lx_kw(p, n, "int8", 4) == 1 {
         ret TOK_INT8
     }
@@ -274,6 +280,23 @@ lexer_next_token() -> nat64 {
 
     if lx_is_digit(c) == 1 {
         nat64 v = c - 48
+        if c == '0' && (lx_peek() == 'x' || lx_peek() == 'X') {
+            lx_adv()
+            v = 0
+            rep lx_is_hex(lx_peek()) == 1 {
+                nat64 h = lx_adv()
+                nat64 d = h - 48
+                if h >= 'a' {
+                    d = h - 87
+                }
+                if h >= 'A' && h <= 'F' {
+                    d = h - 55
+                }
+                v = v * 16 + d
+            }
+            token_value = v
+            ret lx_tok(TOK_NUMBER, start, lx_cur - start)
+        }
         rep lx_is_digit(lx_peek()) == 1 {
             v = v * 10 + (lx_adv() - 48)
         }
@@ -326,6 +349,10 @@ lexer_next_token() -> nat64 {
     }
 
     ret lx_tok(TOK_UNKNOWN, start, 1)
+}
+
+lx_is_hex(nat64 c) -> nat64 {
+    ret (c >= 48 && c <= 57) || (c >= 97 && c <= 102) || (c >= 65 && c <= 70)
 }
 
 lx_copy_to_path(nat64 src, nat64 n, nat64 at) -> nat64 {
