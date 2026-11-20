@@ -1,0 +1,10 @@
+main() -> nat64 {
+    print(17 % 5)
+    print(10 % 3)
+    print(8 % 4)
+    nat64 a = 100
+    nat64 b = 7
+    print(a % b)
+    print(2 + 7 % 4 * 2)
+    ret 0
+}

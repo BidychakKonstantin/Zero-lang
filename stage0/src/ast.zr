@@ -28,13 +28,13 @@ nat64 ast_a[65536]
 nat64 ast_b[65536]
 nat64 ast_c[65536]
 nat64 ast_d[65536]
+nat64 ast_next[65536]
 nat64 ast_name_ptr[65536]
 nat64 ast_name_len[65536]
-nat64 ast_next[65536]
 
 nat64 ast_count = 0
 
-ast_new_node() -> nat64 {
+ast_next_node() -> nat64 {
     ast_count = ast_count + 1
     ret ast_count
 }
@@ -44,7 +44,7 @@ ast_new_node() -> nat64 {
 // ------------------------------------------------------------
 
 ast_list_new() -> nat64 {
-    nat64 id = ast_new_node()
+    nat64 id = ast_next_node()
     ast_kind[id] = TOK_ND_LIST
     ast_a[id] = 0
     ast_d[id] = 0
@@ -69,21 +69,21 @@ ast_list_first(nat64 list_id) -> nat64 {
 }
 
 ast_num(nat64 value) -> nat64 {
-    nat64 id = ast_new_node()
+    nat64 id = ast_next_node()
     ast_kind[id] = TOK_ND_NUM
     ast_a[id] = value
     ret id
 }
 
 ast_char(nat64 value) -> nat64 {
-    nat64 id = ast_new_node()
+    nat64 id = ast_next_node()
     ast_kind[id] = TOK_ND_CHAR
     ast_a[id] = value
     ret id
 }
 
 ast_string(chr* ptr, nat64 len) -> nat64 {
-    nat64 id = ast_new_node()
+    nat64 id = ast_next_node()
     ast_kind[id] = TOK_ND_STRING
     ast_name_ptr[id] = ptr
     ast_name_len[id] = len
@@ -91,7 +91,7 @@ ast_string(chr* ptr, nat64 len) -> nat64 {
 }
 
 ast_ident(chr* ptr, nat64 len) -> nat64 {
-    nat64 id = ast_new_node()
+    nat64 id = ast_next_node()
     ast_kind[id] = TOK_ND_IDENT
     ast_name_ptr[id] = ptr
     ast_name_len[id] = len
@@ -99,20 +99,20 @@ ast_ident(chr* ptr, nat64 len) -> nat64 {
 }
 
 ast_bool(nat64 v) -> nat64 {
-    nat64 id = ast_new_node()
+    nat64 id = ast_next_node()
     ast_kind[id] = TOK_ND_BOOL
     ast_a[id] = v
     ret id
 }
 
 ast_null() -> nat64 {
-    nat64 id = ast_new_node()
+    nat64 id = ast_next_node()
     ast_kind[id] = TOK_ND_NULL
     ret id
 }
 
 ast_binop(nat64 op, nat64 left, nat64 right) -> nat64 {
-    nat64 id = ast_new_node()
+    nat64 id = ast_next_node()
     ast_kind[id] = TOK_ND_BINOP
     ast_a[id] = left
     ast_b[id] = right
@@ -121,7 +121,7 @@ ast_binop(nat64 op, nat64 left, nat64 right) -> nat64 {
 }
 
 ast_unary(nat64 op, nat64 operand) -> nat64 {
-    nat64 id = ast_new_node()
+    nat64 id = ast_next_node()
     ast_kind[id] = TOK_ND_UNARY
     ast_a[id] = operand
     ast_c[id] = op
@@ -129,7 +129,7 @@ ast_unary(nat64 op, nat64 operand) -> nat64 {
 }
 
 ast_call(chr* name_ptr, nat64 name_len, nat64 args_list) -> nat64 {
-    nat64 id = ast_new_node()
+    nat64 id = ast_next_node()
     ast_kind[id] = TOK_ND_CALL
     ast_name_ptr[id] = name_ptr
     ast_name_len[id] = name_len
@@ -138,7 +138,7 @@ ast_call(chr* name_ptr, nat64 name_len, nat64 args_list) -> nat64 {
 }
 
 ast_index(chr* name_ptr, nat64 name_len, nat64 index_expr) -> nat64 {
-    nat64 id = ast_new_node()
+    nat64 id = ast_next_node()
     ast_kind[id] = TOK_ND_INDEX
     ast_name_ptr[id] = name_ptr
     ast_name_len[id] = name_len
@@ -147,7 +147,7 @@ ast_index(chr* name_ptr, nat64 name_len, nat64 index_expr) -> nat64 {
 }
 
 ast_assign(chr* name_ptr, nat64 name_len, nat64 value_expr) -> nat64 {
-    nat64 id = ast_new_node()
+    nat64 id = ast_next_node()
     ast_kind[id] = TOK_ND_ASSIGN
     ast_name_ptr[id] = name_ptr
     ast_name_len[id] = name_len
@@ -156,7 +156,7 @@ ast_assign(chr* name_ptr, nat64 name_len, nat64 value_expr) -> nat64 {
 }
 
 ast_arrassign(chr* name_ptr, nat64 name_len, nat64 index_expr, nat64 value_expr) -> nat64 {
-    nat64 id = ast_new_node()
+    nat64 id = ast_next_node()
     ast_kind[id] = TOK_ND_ARRASSIGN
     ast_name_ptr[id] = name_ptr
     ast_name_len[id] = name_len
@@ -166,7 +166,7 @@ ast_arrassign(chr* name_ptr, nat64 name_len, nat64 index_expr, nat64 value_expr)
 }
 
 ast_vardecl(nat64 type_tok, nat64 is_ptr, chr* name_ptr, nat64 name_len, nat64 init_expr) -> nat64 {
-    nat64 id = ast_new_node()
+    nat64 id = ast_next_node()
     ast_kind[id] = TOK_ND_VARDECL
     ast_a[id] = type_tok
     ast_d[id] = is_ptr
@@ -177,7 +177,7 @@ ast_vardecl(nat64 type_tok, nat64 is_ptr, chr* name_ptr, nat64 name_len, nat64 i
 }
 
 ast_arrdecl(nat64 type_tok, chr* name_ptr, nat64 name_len, nat64 size) -> nat64 {
-    nat64 id = ast_new_node()
+    nat64 id = ast_next_node()
     ast_kind[id] = TOK_ND_ARRDECL
     ast_a[id] = type_tok
     ast_name_ptr[id] = name_ptr
@@ -187,7 +187,7 @@ ast_arrdecl(nat64 type_tok, chr* name_ptr, nat64 name_len, nat64 size) -> nat64 
 }
 
 ast_if(nat64 cond, nat64 then_list, nat64 else_list) -> nat64 {
-    nat64 id = ast_new_node()
+    nat64 id = ast_next_node()
     ast_kind[id] = TOK_ND_IF
     ast_a[id] = cond
     ast_b[id] = then_list
@@ -196,7 +196,7 @@ ast_if(nat64 cond, nat64 then_list, nat64 else_list) -> nat64 {
 }
 
 ast_repcount(nat64 count, nat64 body_list) -> nat64 {
-    nat64 id = ast_new_node()
+    nat64 id = ast_next_node()
     ast_kind[id] = TOK_ND_REPCOUNT
     ast_a[id] = count
     ast_b[id] = body_list
@@ -204,7 +204,7 @@ ast_repcount(nat64 count, nat64 body_list) -> nat64 {
 }
 
 ast_repcond(nat64 cond, nat64 body_list) -> nat64 {
-    nat64 id = ast_new_node()
+    nat64 id = ast_next_node()
     ast_kind[id] = TOK_ND_REPCOND
     ast_a[id] = cond
     ast_b[id] = body_list
@@ -212,14 +212,14 @@ ast_repcond(nat64 cond, nat64 body_list) -> nat64 {
 }
 
 ast_return(nat64 expr) -> nat64 {
-    nat64 id = ast_new_node()
+    nat64 id = ast_next_node()
     ast_kind[id] = TOK_ND_RETURN
     ast_a[id] = expr
     ret id
 }
 
 ast_param(nat64 type_tok, nat64 is_ptr, chr* name_ptr, nat64 name_len) -> nat64 {
-    nat64 id = ast_new_node()
+    nat64 id = ast_next_node()
     ast_kind[id] = TOK_ND_PARAM
     ast_a[id] = type_tok
     ast_d[id] = is_ptr
@@ -229,7 +229,7 @@ ast_param(nat64 type_tok, nat64 is_ptr, chr* name_ptr, nat64 name_len) -> nat64 
 }
 
 ast_func(chr* name_ptr, nat64 name_len, nat64 params_list, nat64 body_list, nat64 ret_type, nat64 ret_is_ptr) -> nat64 {
-    nat64 id = ast_new_node()
+    nat64 id = ast_next_node()
     ast_kind[id] = TOK_ND_FUNC
     ast_name_ptr[id] = name_ptr
     ast_name_len[id] = name_len
@@ -241,7 +241,7 @@ ast_func(chr* name_ptr, nat64 name_len, nat64 params_list, nat64 body_list, nat6
 }
 
 ast_globalvar(nat64 type_tok, nat64 is_ptr, chr* name_ptr, nat64 name_len) -> nat64 {
-    nat64 id = ast_new_node()
+    nat64 id = ast_next_node()
     ast_kind[id] = TOK_ND_GLOBALVAR
     ast_a[id] = type_tok
     ast_d[id] = is_ptr
@@ -251,7 +251,7 @@ ast_globalvar(nat64 type_tok, nat64 is_ptr, chr* name_ptr, nat64 name_len) -> na
 }
 
 ast_program(nat64 top_list) -> nat64 {
-    nat64 id = ast_new_node()
+    nat64 id = ast_next_node()
     ast_kind[id] = TOK_ND_PROGRAM
     ast_a[id] = top_list
     ret id

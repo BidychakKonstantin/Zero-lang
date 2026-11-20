@@ -277,6 +277,10 @@ lexer_next_token() -> nat64 {
         }
         ret lx_tok(TOK_UNKNOWN, start, 1)
     }
+    if c == '%'
+    {
+          ret lx_tok(TOK_REMAINDER,start,1)
+    }
 
     if lx_is_digit(c) == 1 {
         nat64 v = c - 48

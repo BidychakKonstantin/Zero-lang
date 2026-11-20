@@ -1,13 +1,23 @@
+// ============================================================
+// TOKENS (original numbers preserved; only 3 duplicates changed)
+// Free ranges: 48-63 operators, 64-79 types, 80-95 keywords
+// ============================================================
+
+// ---- special ----
 nat8 TOK_EOF        = 0
 nat8 TOK_UNKNOWN    = 1
 nat8 TOK_NEWLINE    = 2
 nat8 TOK_ERROR      = 128
 
+// ---- literals and names ----
 nat8 TOK_IDENT      = 3
 nat8 TOK_NUMBER     = 4
-nat8 TOK_CHR        = 5  
-nat8 TOK_STRING     = 6    
+nat8 TOK_CHR        = 5     // type chr
+nat8 TOK_STRING     = 6
+nat8 TOK_CHAR       = 41    // char literal 'a'
+nat8 TOK_NULL       = 46    // NULL (was 0, clashed with TOK_EOF)
 
+// ---- brackets and separators ----
 nat8 TOK_LBRACE     = 7     // {
 nat8 TOK_RBRACE     = 8     // }
 nat8 TOK_LPAREN     = 9     // (
@@ -15,8 +25,19 @@ nat8 TOK_RPAREN     = 10    // )
 nat8 TOK_LBRACK     = 11    // [
 nat8 TOK_RBRACK     = 12    // ]
 nat8 TOK_COMMA      = 13    // ,
+nat8 TOK_ARROW      = 24    // ->
 
+// ---- assignment ----
 nat8 TOK_EQUAL      = 14    // =
+
+// ---- arithmetic ----
+nat8 TOK_PLUS       = 16    // +
+nat8 TOK_MINUS      = 17    // -
+nat8 TOK_STAR       = 18    // *
+nat8 TOK_SLASH      = 19    // /
+nat8 TOK_REMAINDER  = 47    // %  (was 20, clashed with TOK_LT)
+
+// ---- comparison ----
 nat8 TOK_EQEQ       = 15    // ==
 nat8 TOK_NOTEQ      = 38    // !=
 nat8 TOK_LT         = 20    // <
@@ -24,21 +45,20 @@ nat8 TOK_GT         = 21    // >
 nat8 TOK_LTE        = 22    // <=
 nat8 TOK_GTE        = 23    // >=
 
-nat8 TOK_PLUS       = 16    // +
-nat8 TOK_MINUS      = 17    // -
-nat8 TOK_STAR       = 18    // *
-nat8 TOK_SLASH      = 19    // /
+// ---- logic and address-of ----
 nat8 TOK_ANDAND     = 39    // &&
 nat8 TOK_OROR       = 40    // ||
+nat8 TOK_AMP        = 45    // & 
 
-nat8 TOK_ARROW      = 24    // ->
-
+// ---- keywords ----
 nat8 TOK_IF         = 25
 nat8 TOK_ELSE       = 26
 nat8 TOK_REP        = 27
 nat8 TOK_RET        = 28
 nat8 TOK_USE        = 42
+nat8 TOK_SUPER      = 105
 
+// ---- types ----
 nat8 TOK_INT8       = 29
 nat8 TOK_NAT8       = 30
 nat8 TOK_INT16      = 31
@@ -48,23 +68,29 @@ nat8 TOK_NAT32      = 34
 nat8 TOK_INT64      = 35
 nat8 TOK_NAT64      = 36
 nat8 TOK_BOOL       = 37
-nat8 TOK_INT4       = 38
-nat8 TOK_NAT4       = 39
-nat8 TOK_CHAR   = 41   
+nat8 TOK_INT4       = 43
+nat8 TOK_NAT4       = 44
 
+// ============================================================
+// ASCII codes (NOT tokens: these are character codes, so their
+// numbers may overlap with token numbers without any problem)
+// ============================================================
+
+// ---- whitespace ----
 nat8 TOK_SPACE       = 32    // ' '
 nat8 TOK_TAB         = 9     // '\t'
 nat8 TOK_CR          = 13    // '\r'
 nat8 TOK_NL          = 10    // '\n'
 
+// ---- quotes and special characters ----
 nat8 TOK_QUOTE       = 39    // '
 nat8 TOK_DQUOTE      = 34    // "
 nat8 TOK_BACKSLASH   = 92    // \
 nat8 TOK_SLASH_CHAR  = 47    // /
 nat8 TOK_UNDERSCORE  = 95    // _
 nat8 TOK_ZERO        = 48    // '0'
-nat8 TOK_NULL        = 0     // '\0'
 
+// ---- brackets ----
 nat8 TOK_LBRACE_CHAR = 123   // {
 nat8 TOK_RBRACE_CHAR = 125   // }
 nat8 TOK_LPAREN_CHAR = 40    // (
@@ -72,6 +98,7 @@ nat8 TOK_RPAREN_CHAR = 41    // )
 nat8 TOK_LBRACK_CHAR = 91    // [
 nat8 TOK_RBRACK_CHAR = 93    // ]
 
+// ---- operators ----
 nat8 TOK_COMMA_CHAR  = 44    // ,
 nat8 TOK_PLUS_CHAR   = 43    // +
 nat8 TOK_MINUS_CHAR  = 45    // -
@@ -80,6 +107,4 @@ nat8 TOK_EQUAL_CHAR  = 61    // =
 nat8 TOK_LT_CHAR     = 60    // <
 nat8 TOK_GT_CHAR     = 62    // >
 nat8 TOK_BANG_CHAR   = 33    // !
-nat8 TOK_AMP         = 38    // &
 nat8 TOK_PIPE_CHAR   = 124   // |
-nat8 TOK_SUPER       = 105  

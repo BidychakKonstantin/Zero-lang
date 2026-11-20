@@ -244,6 +244,14 @@ gen_binop_tail(nat64 op) -> nat64 {
         ln("    setne al")
         ret ln("    movzx rax, al")
     }
+    if op == TOK_REMAINDER
+    {
+        ln("    pop rbx")
+        ln("    xchg rax, rbx")
+        ln("    xor rdx, rdx")
+        ln("    div rbx")
+        ln("    mov rax, rdx")
+    }
     ret 0
 }
 

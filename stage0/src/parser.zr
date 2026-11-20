@@ -13,6 +13,8 @@ nat64 cur_val = 0
 nat64 pstk[1024]
 nat64 psp = 0
 
+nat64 expr_id = 0
+
 ppush(nat64 v) -> nat64 {
     pstk[psp] = v
     psp = psp + 1
@@ -104,7 +106,7 @@ p_is_const_name(chr* ptr, nat64 len) -> nat8 {
 
 
 p_make_const(chr* np, nat64 nl, nat64 init) -> nat64 {
-    nat64 id = ast_new_node()
+    nat64 id = ast_next_node()
     ast_kind[id] = TOK_ND_CONST
     ast_name_ptr[id] = np
     ast_name_len[id] = nl
@@ -113,7 +115,8 @@ p_make_const(chr* np, nat64 nl, nat64 init) -> nat64 {
 }
 
 parse_expr() -> nat64 {
-    ret parse_or()
+   nat64 expr_id = parse_or()
+    ret expr_id
 }
 
 parse_or() -> nat64 {
@@ -166,7 +169,7 @@ parse_add() -> nat64 {
 
 parse_mul() -> nat64 {
     nat64 l = parse_unary()
-    rep cur_tok == TOK_STAR || cur_tok == TOK_SLASH {
+    rep cur_tok == TOK_STAR || cur_tok == TOK_SLASH || cur_tok == TOK_REMAINDER {
         ppush(l)
         ppush(cur_tok)
         p_next()
