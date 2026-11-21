@@ -5,7 +5,17 @@ use ast
 nat64 loc_name_ptr[1024]
 nat64 loc_name_len[1024]
 nat64 loc_off[1024]
+nat64 loc_type[1024]
+nat64 loc_ptr[1024]
+nat64 loc_arr[1024]
 nat64 loc_count = 0
+
+nat64 glb_name_ptr[1024]
+nat64 glb_name_len[1024]
+nat64 glb_type[1024]
+nat64 glb_ptr[1024]
+nat64 glb_arr[1024]
+nat64 glb_count = 0
 
 nat64 con_name_ptr[1024]
 nat64 con_name_len[1024]
@@ -26,6 +36,11 @@ nat64 cg_has_ret = 0
 nat64 cg_str = 0
 nat64 cg_ret_type = 0
 nat64 cg_ret_ptr = 0
+
+// result of sym_lookup
+nat64 sy_type = 0
+nat64 sy_ptr = 0
+nat64 sy_arr = 0
 
 ln(nat64 s) -> nat64 {
     write_str(s)
@@ -61,6 +76,119 @@ str_eq(nat64 a, nat64 an, nat64 b, nat64 bn) -> nat64 {
     ret 1
 }
 
+// ------------------------------------------------------------
+// TYPE WIDTHS: size in bytes follows the type name
+// ------------------------------------------------------------
+
+type_size(nat64 t, nat64 isptr) -> nat64 {
+    if isptr == 1 {
+        ret 8
+    }
+    if t == TOK_INT8 || t == TOK_NAT8 || t == TOK_CHR || t == TOK_BOOL {
+        ret 1
+    }
+    if t == TOK_INT4 || t == TOK_NAT4 {
+        ret 1
+    }
+    if t == TOK_INT16 || t == TOK_NAT16 {
+        ret 2
+    }
+    if t == TOK_INT32 || t == TOK_NAT32 {
+        ret 4
+    }
+    ret 8
+}
+
+type_signed(nat64 t, nat64 isptr) -> nat64 {
+    if isptr == 1 {
+        ret 0
+    }
+    if t == TOK_INT8 || t == TOK_INT16 || t == TOK_INT32 {
+        ret 1
+    }
+    ret 0
+}
+
+size_kw(nat64 sz) -> nat64 {
+    if sz == 1 {
+        ret write_str("byte")
+    }
+    if sz == 2 {
+        ret write_str("word")
+    }
+    if sz == 4 {
+        ret write_str("dword")
+    }
+    ret write_str("QWORD")
+}
+
+emit_ax(nat64 sz) -> nat64 {
+    if sz == 1 {
+        ret write_str("al")
+    }
+    if sz == 2 {
+        ret write_str("ax")
+    }
+    if sz == 4 {
+        ret write_str("eax")
+    }
+    ret write_str("rax")
+}
+
+emit_r12(nat64 sz) -> nat64 {
+    if sz == 1 {
+        ret write_str("r12b")
+    }
+    if sz == 2 {
+        ret write_str("r12w")
+    }
+    if sz == 4 {
+        ret write_str("r12d")
+    }
+    ret write_str("r12")
+}
+
+// writes "mov rax, <size> [" (zero/sign extended), caller writes address and "]"
+load_prefix(nat64 sz, nat64 sg) -> nat64 {
+    if sz == 8 {
+        ret write_str("    mov rax, QWORD [")
+    }
+    if sz == 4 {
+        if sg == 1 {
+            ret write_str("    movsxd rax, dword [")
+        }
+        ret write_str("    mov eax, dword [")
+    }
+    if sz == 2 {
+        if sg == 1 {
+            ret write_str("    movsx rax, word [")
+        }
+        ret write_str("    movzx rax, word [")
+    }
+    if sg == 1 {
+        ret write_str("    movsx rax, byte [")
+    }
+    ret write_str("    movzx rax, byte [")
+}
+
+norm_after_load(nat64 t, nat64 isptr) -> nat64 {
+    if isptr == 1 {
+        ret 0
+    }
+    if t == TOK_NAT4 {
+        ret ln("    and rax, 15")
+    }
+    if t == TOK_INT4 {
+        ln("    shl rax, 60")
+        ret ln("    sar rax, 60")
+    }
+    ret 0
+}
+
+// ------------------------------------------------------------
+// SYMBOL TABLES
+// ------------------------------------------------------------
+
 loc_find(nat64 p, nat64 n) -> nat64 {
     nat64 i = loc_count
     rep i != 0 {
@@ -72,13 +200,56 @@ loc_find(nat64 p, nat64 n) -> nat64 {
     ret 0
 }
 
-loc_add(nat64 p, nat64 n, nat64 slots) -> nat64 {
+loc_add(nat64 p, nat64 n, nat64 slots, nat64 t, nat64 pt, nat64 arr) -> nat64 {
     cg_frame = cg_frame + slots * 8
     loc_name_ptr[loc_count] = p
     loc_name_len[loc_count] = n
     loc_off[loc_count] = cg_frame
+    loc_type[loc_count] = t
+    loc_ptr[loc_count] = pt
+    loc_arr[loc_count] = arr
     loc_count = loc_count + 1
     ret cg_frame
+}
+
+glb_find(nat64 p, nat64 n) -> nat64 {
+    nat64 i = glb_count
+    rep i != 0 {
+        i = i - 1
+        if str_eq(glb_name_ptr[i], glb_name_len[i], p, n) == 1 {
+            ret i + 1
+        }
+    }
+    ret 0
+}
+
+glb_add(nat64 p, nat64 n, nat64 t, nat64 pt, nat64 arr) -> nat64 {
+    glb_name_ptr[glb_count] = p
+    glb_name_len[glb_count] = n
+    glb_type[glb_count] = t
+    glb_ptr[glb_count] = pt
+    glb_arr[glb_count] = arr
+    glb_count = glb_count + 1
+    ret 0
+}
+
+// locals shadow globals; fills sy_type / sy_ptr / sy_arr, returns 1 if found
+sym_lookup(nat64 p, nat64 n) -> nat64 {
+    nat64 li = loc_find(p, n)
+    if li != 0 {
+        sy_type = loc_type[li - 1]
+        sy_ptr = loc_ptr[li - 1]
+        sy_arr = loc_arr[li - 1]
+        ret 1
+    }
+    nat64 gi = glb_find(p, n)
+    if gi != 0 {
+        sy_type = glb_type[gi - 1]
+        sy_ptr = glb_ptr[gi - 1]
+        sy_arr = glb_arr[gi - 1]
+        ret 1
+    }
+    ret 0
 }
 
 con_find(nat64 p, nat64 n) -> nat64 {
@@ -244,13 +415,12 @@ gen_binop_tail(nat64 op) -> nat64 {
         ln("    setne al")
         ret ln("    movzx rax, al")
     }
-    if op == TOK_REMAINDER
-    {
+    if op == TOK_REMAINDER {
         ln("    pop rbx")
         ln("    xchg rax, rbx")
         ln("    xor rdx, rdx")
         ln("    div rbx")
-        ln("    mov rax, rdx")
+        ret ln("    mov rax, rdx")
     }
     ret 0
 }
@@ -412,27 +582,59 @@ gen_expr(nat64 node) -> nat64 {
         ret gen_string(node)
     }
     if kind == TOK_ND_IDENT {
-        nat64 li = loc_find(ast_name_ptr[node], ast_name_len[node])
-        nat64 ci = con_find(ast_name_ptr[node], ast_name_len[node])
+        nat64 ip = ast_name_ptr[node]
+        nat64 il = ast_name_len[node]
+        nat64 li = loc_find(ip, il)
+        nat64 ci = con_find(ip, il)
         if li == 0 && ci != 0 {
             write_str("    mov rax, ")
             print_uint(con_value[ci - 1])
             ret emit_nl()
         }
-        write_str("    mov rax, QWORD [")
-        emit_var(ast_name_ptr[node], ast_name_len[node])
-        ret ln("]")
+        nat64 sz = 8
+        nat64 sg = 0
+        nat64 found = sym_lookup(ip, il)
+        if found == 1 {
+            sz = type_size(sy_type, sy_ptr)
+            sg = type_signed(sy_type, sy_ptr)
+        }
+        nat64 vt = sy_type
+        nat64 vp = sy_ptr
+        load_prefix(sz, sg)
+        emit_var(ip, il)
+        ln("]")
+        if found == 1 {
+            norm_after_load(vt, vp)
+        }
+        ret 0
     }
     if kind == TOK_ND_INDEX {
-        nat64 nb = nib_find(ast_name_ptr[node], ast_name_len[node])
+        nat64 xp = ast_name_ptr[node]
+        nat64 xl = ast_name_len[node]
+        nat64 nb = nib_find(xp, xl)
         if nb != 0 {
             ret gen_nib_load(node, nb)
         }
         gen_expr(ast_a[node])
         ln("    mov r11, rax")
-        write_str("    mov rax, QWORD [")
-        emit_var(ast_name_ptr[node], ast_name_len[node])
-        ret ln(" + r11 * 8]")
+        nat64 esz = 8
+        nat64 esg = 0
+        nat64 ety = 0
+        nat64 fnd = sym_lookup(xp, xl)
+        if fnd == 1 {
+            ety = sy_type
+            esz = type_size(sy_type, 0)
+            esg = type_signed(sy_type, 0)
+        }
+        load_prefix(esz, esg)
+        emit_var(xp, xl)
+        write_str(" + r11 * ")
+        print_uint(esz)
+        ln("]")
+        if fnd == 1 {
+            norm_after_load(ety, 0)
+        }
+        ret 0
     }
     if kind == TOK_ND_UNARY {
         if ast_c[node] == TOK_STAR {
@@ -493,29 +695,52 @@ gen_stmt(nat64 node) -> nat64 {
     nat64 kind = ast_kind[node]
 
     if kind == TOK_ND_VARDECL {
-        nat64 off = loc_add(ast_name_ptr[node], ast_name_len[node], 1)
+        nat64 vt = ast_a[node]
+        nat64 vp = ast_d[node]
+        nat64 off = loc_add(ast_name_ptr[node], ast_name_len[node], 1, vt, vp, 0)
         gen_expr(ast_b[node])
-        write_str("    mov QWORD [rbp - ")
+        nat64 vsz = type_size(vt, vp)
+        write_str("    mov ")
+        size_kw(vsz)
+        write_str(" [rbp - ")
         print_uint(off)
-        ret ln("], rax")
+        write_str("], ")
+        emit_ax(vsz)
+        ret emit_nl()
     }
     if kind == TOK_ND_ARRDECL {
-        nat64 slots = ast_d[node]
-        if is_nib_type(ast_a[node]) == 1 {
-            slots = (ast_d[node] + 15) / 16
-            nib_add(ast_name_ptr[node], ast_name_len[node], ast_a[node] == TOK_INT4)
+        nat64 at = ast_a[node]
+        nat64 cnt = ast_d[node]
+        nat64 slots = 0
+        if is_nib_type(at) == 1 {
+            slots = (cnt + 15) / 16
+            nib_add(ast_name_ptr[node], ast_name_len[node], at == TOK_INT4)
+        } else {
+            slots = (cnt * type_size(at, 0) + 7) / 8
         }
-        loc_add(ast_name_ptr[node], ast_name_len[node], slots)
+        loc_add(ast_name_ptr[node], ast_name_len[node], slots, at, 0, 1)
         ret 0
     }
     if kind == TOK_ND_ASSIGN {
         gen_expr(ast_a[node])
-        write_str("    mov QWORD [")
-        emit_var(ast_name_ptr[node], ast_name_len[node])
-        ret ln("], rax")
+        nat64 ap = ast_name_ptr[node]
+        nat64 al = ast_name_len[node]
+        nat64 asz = 8
+        if sym_lookup(ap, al) == 1 {
+            asz = type_size(sy_type, sy_ptr)
+        }
+        write_str("    mov ")
+        size_kw(asz)
+        write_str(" [")
+        emit_var(ap, al)
+        write_str("], ")
+        emit_ax(asz)
+        ret emit_nl()
     }
     if kind == TOK_ND_ARRASSIGN {
-        if nib_find(ast_name_ptr[node], ast_name_len[node]) != 0 {
+        nat64 rp = ast_name_ptr[node]
+        nat64 rl = ast_name_len[node]
+        if nib_find(rp, rl) != 0 {
             ret gen_nib_store(node)
         }
         gen_expr(ast_a[node])
@@ -523,9 +748,19 @@ gen_stmt(nat64 node) -> nat64 {
         gen_expr(ast_b[node])
         ln("    mov r12, rax")
         ln("    pop r11")
-        write_str("    mov QWORD [")
-        emit_var(ast_name_ptr[node], ast_name_len[node])
-        ret ln(" + r11 * 8], r12")
+        nat64 rsz = 8
+        if sym_lookup(rp, rl) == 1 {
+            rsz = type_size(sy_type, 0)
+        }
+        write_str("    mov ")
+        size_kw(rsz)
+        write_str(" [")
+        emit_var(rp, rl)
+        write_str(" + r11 * ")
+        print_uint(rsz)
+        write_str("], ")
+        emit_r12(rsz)
+        ret emit_nl()
     }
     if kind == TOK_ND_IF {
         gen_expr(ast_a[node])
@@ -619,7 +854,7 @@ gen_func(nat64 f) -> nat64 {
     nat64 cur = ast_list_first(ast_a[f])
     nat64 idx = 0
     rep cur != 0 {
-        nat64 off = loc_add(ast_name_ptr[cur], ast_name_len[cur], 1)
+        nat64 off = loc_add(ast_name_ptr[cur], ast_name_len[cur], 1, ast_a[cur], ast_d[cur], 0)
         write_str("    mov rax, ")
         argreg(idx)
         emit_nl()
@@ -641,11 +876,13 @@ gen_func(nat64 f) -> nat64 {
     ret emit_nl()
 }
 
-gen_global(nat64 node, nat64 n) -> nat64 {
+// reserves exactly `bytes` bytes (8-byte aligned)
+gen_global(nat64 node, nat64 bytes) -> nat64 {
     ln("section .bss")
+    ln("alignb 8")
     write_bytes(ast_name_ptr[node], ast_name_len[node])
-    write_str(": resq ")
-    print_uint(n)
+    write_str(": resb ")
+    print_uint(bytes)
     emit_nl()
     ret ln("section .text")
 }
@@ -683,14 +920,17 @@ gen_program(nat64 prog) -> nat64 {
     rep cur != 0 {
         nat64 k = ast_kind[cur]
         if k == TOK_ND_GLOBALVAR {
-            gen_global(cur, 1)
+            glb_add(ast_name_ptr[cur], ast_name_len[cur], ast_a[cur], ast_d[cur], 0)
+            gen_global(cur, type_size(ast_a[cur], ast_d[cur]))
         }
         if k == TOK_ND_ARRDECL {
             if is_nib_type(ast_a[cur]) == 1 {
                 nib_add(ast_name_ptr[cur], ast_name_len[cur], ast_a[cur] == TOK_INT4)
-                gen_global(cur, (ast_d[cur] + 15) / 16)
+                glb_add(ast_name_ptr[cur], ast_name_len[cur], ast_a[cur], 0, 1)
+                gen_global(cur, (ast_d[cur] + 15) / 16 * 8)
             } else {
-                gen_global(cur, ast_d[cur])
+                glb_add(ast_name_ptr[cur], ast_name_len[cur], ast_a[cur], 0, 1)
+                gen_global(cur, ast_d[cur] * type_size(ast_a[cur], 0))
             }
         }
         cur = ast_next[cur]

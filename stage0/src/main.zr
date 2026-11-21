@@ -4,6 +4,7 @@ use lexer
 use ast
 use parser
 use codegen_ast
+//use "optimizer/optimizer.zr"
 
 main() -> nat64 {
     if get_arg(1) == 0 {

@@ -13,8 +13,6 @@ nat64 cur_val = 0
 nat64 pstk[1024]
 nat64 psp = 0
 
-nat64 expr_id = 0
-
 ppush(nat64 v) -> nat64 {
     pstk[psp] = v
     psp = psp + 1
@@ -50,6 +48,7 @@ p_error(chr* msg) -> nat64 {
     exit_program(1)
     ret 0
 }
+
 p_expect(nat64 t) -> nat64 {
     if cur_tok != t {
         p_error("unexpected token")
@@ -104,7 +103,6 @@ p_is_const_name(chr* ptr, nat64 len) -> nat8 {
     ret 1
 }
 
-
 p_make_const(chr* np, nat64 nl, nat64 init) -> nat64 {
     nat64 id = ast_next_node()
     ast_kind[id] = TOK_ND_CONST
@@ -114,9 +112,13 @@ p_make_const(chr* np, nat64 nl, nat64 init) -> nat64 {
     ret id
 }
 
+// ------------------------------------------------------------
+// EXPRESSIONS (lowest to highest precedence)
+// or -> and -> cmp -> add -> mul -> unary -> primary
+// ------------------------------------------------------------
+
 parse_expr() -> nat64 {
-   nat64 expr_id = parse_or()
-    ret expr_id
+    ret parse_or()
 }
 
 parse_or() -> nat64 {
@@ -285,6 +287,10 @@ parse_primary() -> nat64 {
     ret 0
 }
 
+// ------------------------------------------------------------
+// STATEMENTS
+// ------------------------------------------------------------
+
 parse_block() -> nat64 {
     p_skip_nl()
     p_expect(TOK_LBRACE)
@@ -423,6 +429,10 @@ parse_stmt() -> nat64 {
     ret 0
 }
 
+// ------------------------------------------------------------
+// FUNCTIONS AND TOP LEVEL
+// ------------------------------------------------------------
+
 parse_params() -> nat64 {
     ppush(ast_list_new())
     p_next()
@@ -541,9 +551,7 @@ parse_program() -> nat64 {
         if cur_tok == TOK_USE {
             p_next()
 
-            
-            if cur_tok == TOK_SUPER
-            {
+            if cur_tok == TOK_SUPER {
                 is_super = 1
                 p_next()
             }
@@ -553,7 +561,7 @@ parse_program() -> nat64 {
                 p_expect(TOK_IDENT)
                 lexer_use_module(cur_ptr, cur_len)
             }
-            
+
             is_super = 0
             p_next()
             hd = 1
