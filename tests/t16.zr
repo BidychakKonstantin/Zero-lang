@@ -1,0 +1,9 @@
+main() {
+    nat64 buf[2]
+    chr* p = &buf
+    *p = 65
+    *(p + 1) = 66
+    print(*p)
+    print(*(p + 1))
+    ret 0
+}

@@ -261,7 +261,7 @@ lexer_next_token() -> nat64 {
             lx_adv()
             ret lx_tok(TOK_NOTEQ, start, 2)
         }
-        ret lx_tok(TOK_UNKNOWN, start, 1)
+        ret lx_tok(TOK_BANG, start, 1)
     }
     if c == '&' {
         if lx_peek() == '&' {

@@ -183,6 +183,14 @@ parse_mul() -> nat64 {
 }
 
 parse_unary() -> nat64 {
+    if cur_tok == TOK_MINUS {
+        p_next()
+        ret ast_binop(TOK_MINUS, ast_num(0), parse_unary())
+    }
+    if cur_tok == TOK_BANG {
+        p_next()
+        ret ast_binop(TOK_EQEQ, parse_unary(), ast_num(0))
+    }
     if cur_tok == TOK_STAR {
         p_next()
         ret ast_unary(TOK_STAR, parse_unary())
@@ -377,6 +385,16 @@ parse_stmt() -> nat64 {
         nat64 cbody = parse_block()
         nat64 ccond = ppop()
         ret ast_repcond(ccond, cbody)
+    }
+
+    if cur_tok == TOK_STAR {
+        p_next()
+        ppush(parse_unary())
+        p_expect(TOK_EQUAL)
+        p_next()
+        nat64 ptv = parse_expr()
+        nat64 pta = ppop()
+        ret ast_ptrassign(pta, ptv)
     }
 
     // ---- ret ----

@@ -290,6 +290,10 @@ section .bss
 alignb 8
 sy_arr: resb 8
 section .text
+section .bss
+alignb 8
+fold_ok: resb 8
+section .text
 str_len:
     push rbp
     mov rbp, rsp
@@ -2142,7 +2146,7 @@ L_if_end_52:
     ret
 L_if_else_55:
 L_if_end_55:
-    mov rax, 1
+    mov rax, 48
     push rax
     mov rax, QWORD [rbp - 8]
     push rax
@@ -4602,10 +4606,42 @@ ast_program:
     leave
     ret
 FRAME_55 equ 16
-ppush:
+ast_ptrassign:
     push rbp
     mov rbp, rsp
     sub rsp, strict dword FRAME_56
+    mov rax, rdi
+    mov QWORD [rbp - 8], rax
+    mov rax, rsi
+    mov QWORD [rbp - 16], rax
+    call ast_next_node
+    mov QWORD [rbp - 24], rax
+    mov rax, QWORD [rbp - 24]
+    push rax
+    mov rax, 25
+    mov r12, rax
+    pop r11
+    mov byte [ast_kind + r11 * 1], r12b
+    mov rax, QWORD [rbp - 24]
+    push rax
+    mov rax, QWORD [rbp - 8]
+    mov r12, rax
+    pop r11
+    mov QWORD [ast_a + r11 * 8], r12
+    mov rax, QWORD [rbp - 24]
+    push rax
+    mov rax, QWORD [rbp - 16]
+    mov r12, rax
+    pop r11
+    mov QWORD [ast_b + r11 * 8], r12
+    mov rax, QWORD [rbp - 24]
+    leave
+    ret
+FRAME_56 equ 32
+ppush:
+    push rbp
+    mov rbp, rsp
+    sub rsp, strict dword FRAME_57
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, QWORD [psp]
@@ -4623,11 +4659,11 @@ ppush:
     mov rax, 0
     leave
     ret
-FRAME_56 equ 16
+FRAME_57 equ 16
 ppop:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_57
+    sub rsp, strict dword FRAME_58
     mov rax, QWORD [psp]
     push rax
     mov rax, 1
@@ -4641,11 +4677,11 @@ ppop:
     mov rax, QWORD [pstk + r11 * 8]
     leave
     ret
-FRAME_57 equ 0
+FRAME_58 equ 0
 p_next:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_58
+    sub rsp, strict dword FRAME_59
     call lexer_next_token
     mov QWORD [cur_tok], rax
     mov rax, QWORD [token_ptr]
@@ -4657,11 +4693,11 @@ p_next:
     mov rax, 0
     leave
     ret
-FRAME_58 equ 0
+FRAME_59 equ 0
 p_skip_nl:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_59
+    sub rsp, strict dword FRAME_60
 L_rep_start_97:
     mov rax, QWORD [cur_tok]
     push rax
@@ -4678,11 +4714,11 @@ L_rep_end_97:
     mov rax, 0
     leave
     ret
-FRAME_59 equ 0
+FRAME_60 equ 0
 p_error:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_60
+    sub rsp, strict dword FRAME_61
     mov rax, rdi
     mov QWORD [rbp - 8], rax
 section .rodata
@@ -4731,11 +4767,11 @@ section .text
     mov rax, 0
     leave
     ret
-FRAME_60 equ 16
+FRAME_61 equ 16
 p_expect:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_61
+    sub rsp, strict dword FRAME_62
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, QWORD [cur_tok]
@@ -4760,11 +4796,11 @@ L_if_end_98:
     mov rax, 0
     leave
     ret
-FRAME_61 equ 16
+FRAME_62 equ 16
 p_eq:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_62
+    sub rsp, strict dword FRAME_63
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, rsi
@@ -4837,11 +4873,11 @@ L_rep_end_100:
     movzx rax, al
     leave
     ret
-FRAME_62 equ 48
+FRAME_63 equ 48
 p_is_type:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_63
+    sub rsp, strict dword FRAME_64
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, QWORD [rbp - 8]
@@ -5006,11 +5042,11 @@ L_if_end_102:
     movzx rax, al
     leave
     ret
-FRAME_63 equ 16
+FRAME_64 equ 16
 p_is_cmp:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_64
+    sub rsp, strict dword FRAME_65
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, QWORD [rbp - 8]
@@ -5097,11 +5133,11 @@ L_if_end_103:
     movzx rax, al
     leave
     ret
-FRAME_64 equ 16
+FRAME_65 equ 16
 p_is_const_name:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_65
+    sub rsp, strict dword FRAME_66
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, rsi
@@ -5205,11 +5241,11 @@ L_if_end_108:
     movzx rax, al
     leave
     ret
-FRAME_65 equ 16
+FRAME_66 equ 16
 p_make_const:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_66
+    sub rsp, strict dword FRAME_67
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, rsi
@@ -5245,19 +5281,19 @@ p_make_const:
     mov rax, QWORD [rbp - 32]
     leave
     ret
-FRAME_66 equ 32
+FRAME_67 equ 32
 parse_expr:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_67
+    sub rsp, strict dword FRAME_68
     call parse_or
     leave
     ret
-FRAME_67 equ 0
+FRAME_68 equ 0
 parse_or:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_68
+    sub rsp, strict dword FRAME_69
     call parse_and
     mov QWORD [rbp - 8], rax
 L_rep_start_109:
@@ -5297,11 +5333,11 @@ L_rep_end_109:
     mov rax, QWORD [rbp - 8]
     leave
     ret
-FRAME_68 equ 16
+FRAME_69 equ 16
 parse_and:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_69
+    sub rsp, strict dword FRAME_70
     call parse_cmp
     mov QWORD [rbp - 8], rax
 L_rep_start_110:
@@ -5341,11 +5377,11 @@ L_rep_end_110:
     mov rax, QWORD [rbp - 8]
     leave
     ret
-FRAME_69 equ 16
+FRAME_70 equ 16
 parse_cmp:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_70
+    sub rsp, strict dword FRAME_71
     call parse_add
     mov QWORD [rbp - 8], rax
 L_rep_start_111:
@@ -5396,11 +5432,11 @@ L_rep_end_111:
     mov rax, QWORD [rbp - 8]
     leave
     ret
-FRAME_70 equ 32
+FRAME_71 equ 32
 parse_add:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_71
+    sub rsp, strict dword FRAME_72
     call parse_mul
     mov QWORD [rbp - 8], rax
 L_rep_start_112:
@@ -5460,11 +5496,11 @@ L_rep_end_112:
     mov rax, QWORD [rbp - 8]
     leave
     ret
-FRAME_71 equ 32
+FRAME_72 equ 32
 parse_mul:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_72
+    sub rsp, strict dword FRAME_73
     call parse_unary
     mov QWORD [rbp - 8], rax
 L_rep_start_113:
@@ -5537,14 +5573,14 @@ L_rep_end_113:
     mov rax, QWORD [rbp - 8]
     leave
     ret
-FRAME_72 equ 32
+FRAME_73 equ 32
 parse_unary:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_73
+    sub rsp, strict dword FRAME_74
     mov rax, QWORD [cur_tok]
     push rax
-    mov rax, 18
+    mov rax, 17
     pop rbx
     cmp rbx, rax
     sete al
@@ -5552,6 +5588,68 @@ parse_unary:
     test rax, rax
     jz L_if_else_114
     call p_next
+    mov rax, 17
+    push rax
+    mov rax, 0
+    push rax
+    pop rax
+    mov rdi, rax
+    call ast_num
+    push rax
+    call parse_unary
+    push rax
+    pop rax
+    mov rdx, rax
+    pop rax
+    mov rsi, rax
+    pop rax
+    mov rdi, rax
+    call ast_binop
+    leave
+    ret
+L_if_else_114:
+L_if_end_114:
+    mov rax, QWORD [cur_tok]
+    push rax
+    mov rax, 48
+    pop rbx
+    cmp rbx, rax
+    sete al
+    movzx rax, al
+    test rax, rax
+    jz L_if_else_115
+    call p_next
+    mov rax, 15
+    push rax
+    call parse_unary
+    push rax
+    mov rax, 0
+    push rax
+    pop rax
+    mov rdi, rax
+    call ast_num
+    push rax
+    pop rax
+    mov rdx, rax
+    pop rax
+    mov rsi, rax
+    pop rax
+    mov rdi, rax
+    call ast_binop
+    leave
+    ret
+L_if_else_115:
+L_if_end_115:
+    mov rax, QWORD [cur_tok]
+    push rax
+    mov rax, 18
+    pop rbx
+    cmp rbx, rax
+    sete al
+    movzx rax, al
+    test rax, rax
+    jz L_if_else_116
+    call p_next
     mov rax, 18
     push rax
     call parse_unary
@@ -5563,8 +5661,8 @@ parse_unary:
     call ast_unary
     leave
     ret
-L_if_else_114:
-L_if_end_114:
+L_if_else_116:
+L_if_end_116:
     mov rax, QWORD [cur_tok]
     push rax
     mov rax, 45
@@ -5573,7 +5671,7 @@ L_if_end_114:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_115
+    jz L_if_else_117
     call p_next
     mov rax, 45
     push rax
@@ -5586,23 +5684,23 @@ L_if_end_114:
     call ast_unary
     leave
     ret
-L_if_else_115:
-L_if_end_115:
+L_if_else_117:
+L_if_end_117:
     call parse_primary
     leave
     ret
-FRAME_73 equ 0
+FRAME_74 equ 0
 parse_call_args:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_74
+    sub rsp, strict dword FRAME_75
     call ast_list_new
     push rax
     pop rax
     mov rdi, rax
     call ppush
     call p_next
-L_rep_start_116:
+L_rep_start_118:
     mov rax, QWORD [cur_tok]
     push rax
     mov rax, 10
@@ -5611,7 +5709,7 @@ L_rep_start_116:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_rep_end_116
+    jz L_rep_end_118
     call parse_expr
     mov QWORD [rbp - 8], rax
     mov rax, QWORD [psp]
@@ -5639,21 +5737,21 @@ L_rep_start_116:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_117
+    jz L_if_else_119
     call p_next
-L_if_else_117:
-L_if_end_117:
-    jmp L_rep_start_116
-L_rep_end_116:
+L_if_else_119:
+L_if_end_119:
+    jmp L_rep_start_118
+L_rep_end_118:
     call p_next
     call ppop
     leave
     ret
-FRAME_74 equ 16
+FRAME_75 equ 16
 parse_primary:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_75
+    sub rsp, strict dword FRAME_76
     mov rax, 0
     mov QWORD [rbp - 8], rax
     mov rax, QWORD [cur_tok]
@@ -5664,7 +5762,7 @@ parse_primary:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_118
+    jz L_if_else_120
     mov rax, QWORD [cur_val]
     push rax
     pop rax
@@ -5675,8 +5773,8 @@ parse_primary:
     mov rax, QWORD [rbp - 8]
     leave
     ret
-L_if_else_118:
-L_if_end_118:
+L_if_else_120:
+L_if_end_120:
     mov rax, QWORD [cur_tok]
     push rax
     mov rax, 41
@@ -5685,7 +5783,7 @@ L_if_end_118:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_119
+    jz L_if_else_121
     mov rax, QWORD [cur_val]
     push rax
     pop rax
@@ -5696,8 +5794,8 @@ L_if_end_118:
     mov rax, QWORD [rbp - 8]
     leave
     ret
-L_if_else_119:
-L_if_end_119:
+L_if_else_121:
+L_if_end_121:
     mov rax, QWORD [cur_tok]
     push rax
     mov rax, 6
@@ -5706,7 +5804,7 @@ L_if_end_119:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_120
+    jz L_if_else_122
     mov rax, QWORD [cur_ptr]
     push rax
     mov rax, QWORD [cur_len]
@@ -5721,8 +5819,8 @@ L_if_end_119:
     mov rax, QWORD [rbp - 8]
     leave
     ret
-L_if_else_120:
-L_if_end_120:
+L_if_else_122:
+L_if_end_122:
     mov rax, QWORD [cur_tok]
     push rax
     mov rax, 46
@@ -5731,15 +5829,15 @@ L_if_end_120:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_121
+    jz L_if_else_123
     call ast_null
     mov QWORD [rbp - 8], rax
     call p_next
     mov rax, QWORD [rbp - 8]
     leave
     ret
-L_if_else_121:
-L_if_end_121:
+L_if_else_123:
+L_if_end_123:
     mov rax, QWORD [cur_tok]
     push rax
     mov rax, 9
@@ -5748,7 +5846,7 @@ L_if_end_121:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_122
+    jz L_if_else_124
     call p_next
     call parse_expr
     mov QWORD [rbp - 8], rax
@@ -5761,8 +5859,8 @@ L_if_end_121:
     mov rax, QWORD [rbp - 8]
     leave
     ret
-L_if_else_122:
-L_if_end_122:
+L_if_else_124:
+L_if_end_124:
     mov rax, QWORD [cur_tok]
     push rax
     mov rax, 3
@@ -5771,7 +5869,7 @@ L_if_end_122:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_123
+    jz L_if_else_125
     mov rax, QWORD [cur_ptr]
     push rax
     mov rax, QWORD [cur_len]
@@ -5799,7 +5897,7 @@ section .text
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_124
+    jz L_if_else_126
     mov rax, 1
     push rax
     pop rax
@@ -5810,8 +5908,8 @@ section .text
     mov rax, QWORD [rbp - 8]
     leave
     ret
-L_if_else_124:
-L_if_end_124:
+L_if_else_126:
+L_if_end_126:
     mov rax, QWORD [cur_ptr]
     push rax
     mov rax, QWORD [cur_len]
@@ -5839,7 +5937,7 @@ section .text
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_125
+    jz L_if_else_127
     mov rax, 0
     push rax
     pop rax
@@ -5850,8 +5948,8 @@ section .text
     mov rax, QWORD [rbp - 8]
     leave
     ret
-L_if_else_125:
-L_if_end_125:
+L_if_else_127:
+L_if_end_127:
     mov rax, QWORD [cur_ptr]
     push rax
     pop rax
@@ -5871,7 +5969,7 @@ L_if_end_125:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_126
+    jz L_if_else_128
     call parse_call_args
     mov QWORD [rbp - 16], rax
     call ppop
@@ -5893,8 +5991,8 @@ L_if_end_125:
     call ast_call
     leave
     ret
-L_if_else_126:
-L_if_end_126:
+L_if_else_128:
+L_if_end_128:
     mov rax, QWORD [cur_tok]
     push rax
     mov rax, 11
@@ -5903,7 +6001,7 @@ L_if_end_126:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_127
+    jz L_if_else_129
     call p_next
     call parse_expr
     mov QWORD [rbp - 40], rax
@@ -5932,8 +6030,8 @@ L_if_end_126:
     call ast_index
     leave
     ret
-L_if_else_127:
-L_if_end_127:
+L_if_else_129:
+L_if_end_129:
     call ppop
     mov QWORD [rbp - 64], rax
     call ppop
@@ -5949,8 +6047,8 @@ L_if_end_127:
     call ast_ident
     leave
     ret
-L_if_else_123:
-L_if_end_123:
+L_if_else_125:
+L_if_end_125:
 section .rodata
 str_30: db 101, 120, 112, 101, 99, 116, 101, 100, 32, 101, 120, 112, 114, 101, 115, 115, 105, 111, 110, 0
 section .text
@@ -5962,11 +6060,11 @@ section .text
     mov rax, 0
     leave
     ret
-FRAME_75 equ 80
+FRAME_76 equ 80
 parse_block:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_76
+    sub rsp, strict dword FRAME_77
     call p_skip_nl
     mov rax, 7
     push rax
@@ -5980,7 +6078,7 @@ parse_block:
     mov rdi, rax
     call ppush
     call p_skip_nl
-L_rep_start_128:
+L_rep_start_130:
     mov rax, QWORD [cur_tok]
     push rax
     mov rax, 8
@@ -5989,7 +6087,7 @@ L_rep_start_128:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_rep_end_128
+    jz L_rep_end_130
     mov rax, QWORD [cur_tok]
     push rax
     mov rax, 0
@@ -5998,7 +6096,7 @@ L_rep_start_128:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_129
+    jz L_if_else_131
 section .rodata
 str_31: db 101, 120, 112, 101, 99, 116, 101, 100, 32, 125, 0
 section .text
@@ -6007,8 +6105,8 @@ section .text
     pop rax
     mov rdi, rax
     call p_error
-L_if_else_129:
-L_if_end_129:
+L_if_else_131:
+L_if_end_131:
     call parse_stmt
     mov QWORD [rbp - 8], rax
     mov rax, QWORD [psp]
@@ -6029,17 +6127,17 @@ L_if_end_129:
     mov rdi, rax
     call ast_list_append
     call p_skip_nl
-    jmp L_rep_start_128
-L_rep_end_128:
+    jmp L_rep_start_130
+L_rep_end_130:
     call p_next
     call ppop
     leave
     ret
-FRAME_76 equ 16
+FRAME_77 equ 16
 parse_stmt:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_77
+    sub rsp, strict dword FRAME_78
     mov rax, QWORD [cur_tok]
     push rax
     pop rax
@@ -6052,7 +6150,7 @@ parse_stmt:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_130
+    jz L_if_else_132
     mov rax, QWORD [cur_tok]
     push rax
     pop rax
@@ -6072,7 +6170,7 @@ parse_stmt:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_131
+    jz L_if_else_133
     mov rax, QWORD [psp]
     push rax
     mov rax, 1
@@ -6086,8 +6184,8 @@ parse_stmt:
     pop r11
     mov QWORD [pstk + r11 * 8], r12
     call p_next
-L_if_else_131:
-L_if_end_131:
+L_if_else_133:
+L_if_end_133:
     mov rax, 3
     push rax
     pop rax
@@ -6112,7 +6210,7 @@ L_if_end_131:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_132
+    jz L_if_else_134
     call p_next
     mov rax, 4
     push rax
@@ -6154,8 +6252,8 @@ L_if_end_131:
     call ast_arrdecl
     leave
     ret
-L_if_else_132:
-L_if_end_132:
+L_if_else_134:
+L_if_end_134:
     mov rax, 14
     push rax
     pop rax
@@ -6195,8 +6293,8 @@ L_if_end_132:
     call ast_vardecl
     leave
     ret
-L_if_else_130:
-L_if_end_130:
+L_if_else_132:
+L_if_end_132:
     mov rax, QWORD [cur_tok]
     push rax
     mov rax, 25
@@ -6205,7 +6303,7 @@ L_if_end_130:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_133
+    jz L_if_else_135
     call p_next
     call parse_expr
     push rax
@@ -6228,12 +6326,12 @@ L_if_end_130:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_134
+    jz L_if_else_136
     call p_next
     call parse_block
     mov QWORD [rbp - 80], rax
-L_if_else_134:
-L_if_end_134:
+L_if_else_136:
+L_if_end_136:
     call ppop
     mov QWORD [rbp - 88], rax
     call ppop
@@ -6253,8 +6351,8 @@ L_if_end_134:
     call ast_if
     leave
     ret
-L_if_else_133:
-L_if_end_133:
+L_if_else_135:
+L_if_end_135:
     mov rax, QWORD [cur_tok]
     push rax
     mov rax, 27
@@ -6263,7 +6361,7 @@ L_if_end_133:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_135
+    jz L_if_else_137
     call p_next
     mov rax, QWORD [cur_tok]
     push rax
@@ -6273,7 +6371,7 @@ L_if_end_133:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_136
+    jz L_if_else_138
     mov rax, QWORD [cur_val]
     push rax
     pop rax
@@ -6295,8 +6393,8 @@ L_if_end_133:
     call ast_repcount
     leave
     ret
-L_if_else_136:
-L_if_end_136:
+L_if_else_138:
+L_if_end_138:
     call parse_expr
     push rax
     pop rax
@@ -6317,8 +6415,46 @@ L_if_end_136:
     call ast_repcond
     leave
     ret
-L_if_else_135:
-L_if_end_135:
+L_if_else_137:
+L_if_end_137:
+    mov rax, QWORD [cur_tok]
+    push rax
+    mov rax, 18
+    pop rbx
+    cmp rbx, rax
+    sete al
+    movzx rax, al
+    test rax, rax
+    jz L_if_else_139
+    call p_next
+    call parse_unary
+    push rax
+    pop rax
+    mov rdi, rax
+    call ppush
+    mov rax, 14
+    push rax
+    pop rax
+    mov rdi, rax
+    call p_expect
+    call p_next
+    call parse_expr
+    mov QWORD [rbp - 136], rax
+    call ppop
+    mov QWORD [rbp - 144], rax
+    mov rax, QWORD [rbp - 144]
+    push rax
+    mov rax, QWORD [rbp - 136]
+    push rax
+    pop rax
+    mov rsi, rax
+    pop rax
+    mov rdi, rax
+    call ast_ptrassign
+    leave
+    ret
+L_if_else_139:
+L_if_end_139:
     mov rax, QWORD [cur_tok]
     push rax
     mov rax, 28
@@ -6327,7 +6463,7 @@ L_if_end_135:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_137
+    jz L_if_else_140
     call p_next
     mov rax, QWORD [cur_tok]
     push rax
@@ -6363,7 +6499,7 @@ L_if_end_135:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_if_else_138
+    jz L_if_else_141
     mov rax, 0
     push rax
     pop rax
@@ -6371,8 +6507,8 @@ L_if_end_135:
     call ast_return
     leave
     ret
-L_if_else_138:
-L_if_end_138:
+L_if_else_141:
+L_if_end_141:
     call parse_expr
     push rax
     pop rax
@@ -6380,8 +6516,8 @@ L_if_end_138:
     call ast_return
     leave
     ret
-L_if_else_137:
-L_if_end_137:
+L_if_else_140:
+L_if_end_140:
     mov rax, QWORD [cur_tok]
     push rax
     mov rax, 3
@@ -6390,7 +6526,7 @@ L_if_end_137:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_139
+    jz L_if_else_142
     mov rax, QWORD [cur_ptr]
     push rax
     pop rax
@@ -6410,19 +6546,19 @@ L_if_end_137:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_140
+    jz L_if_else_143
     call p_next
     call parse_expr
-    mov QWORD [rbp - 136], rax
-    call ppop
-    mov QWORD [rbp - 144], rax
-    call ppop
     mov QWORD [rbp - 152], rax
+    call ppop
+    mov QWORD [rbp - 160], rax
+    call ppop
+    mov QWORD [rbp - 168], rax
+    mov rax, QWORD [rbp - 168]
+    push rax
+    mov rax, QWORD [rbp - 160]
+    push rax
     mov rax, QWORD [rbp - 152]
-    push rax
-    mov rax, QWORD [rbp - 144]
-    push rax
-    mov rax, QWORD [rbp - 136]
     push rax
     pop rax
     mov rdx, rax
@@ -6433,8 +6569,8 @@ L_if_end_137:
     call ast_assign
     leave
     ret
-L_if_else_140:
-L_if_end_140:
+L_if_else_143:
+L_if_end_143:
     mov rax, QWORD [cur_tok]
     push rax
     mov rax, 9
@@ -6443,18 +6579,18 @@ L_if_end_140:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_141
+    jz L_if_else_144
     call parse_call_args
-    mov QWORD [rbp - 160], rax
-    call ppop
-    mov QWORD [rbp - 168], rax
-    call ppop
     mov QWORD [rbp - 176], rax
+    call ppop
+    mov QWORD [rbp - 184], rax
+    call ppop
+    mov QWORD [rbp - 192], rax
+    mov rax, QWORD [rbp - 192]
+    push rax
+    mov rax, QWORD [rbp - 184]
+    push rax
     mov rax, QWORD [rbp - 176]
-    push rax
-    mov rax, QWORD [rbp - 168]
-    push rax
-    mov rax, QWORD [rbp - 160]
     push rax
     pop rax
     mov rdx, rax
@@ -6465,8 +6601,8 @@ L_if_end_140:
     call ast_call
     leave
     ret
-L_if_else_141:
-L_if_end_141:
+L_if_else_144:
+L_if_end_144:
     mov rax, QWORD [cur_tok]
     push rax
     mov rax, 11
@@ -6475,7 +6611,7 @@ L_if_end_141:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_142
+    jz L_if_else_145
     call p_next
     call parse_expr
     push rax
@@ -6495,20 +6631,20 @@ L_if_end_141:
     call p_expect
     call p_next
     call parse_expr
-    mov QWORD [rbp - 184], rax
-    call ppop
-    mov QWORD [rbp - 192], rax
-    call ppop
     mov QWORD [rbp - 200], rax
     call ppop
     mov QWORD [rbp - 208], rax
+    call ppop
+    mov QWORD [rbp - 216], rax
+    call ppop
+    mov QWORD [rbp - 224], rax
+    mov rax, QWORD [rbp - 224]
+    push rax
+    mov rax, QWORD [rbp - 216]
+    push rax
     mov rax, QWORD [rbp - 208]
     push rax
     mov rax, QWORD [rbp - 200]
-    push rax
-    mov rax, QWORD [rbp - 192]
-    push rax
-    mov rax, QWORD [rbp - 184]
     push rax
     pop rax
     mov rcx, rax
@@ -6521,8 +6657,8 @@ L_if_end_141:
     call ast_arrassign
     leave
     ret
-L_if_else_142:
-L_if_end_142:
+L_if_else_145:
+L_if_end_145:
 section .rodata
 str_32: db 117, 110, 101, 120, 112, 101, 99, 116, 101, 100, 32, 116, 111, 107, 101, 110, 32, 97, 102, 116, 101, 114, 32, 105, 100, 101, 110, 116, 105, 102, 105, 101, 114, 0
 section .text
@@ -6531,8 +6667,8 @@ section .text
     pop rax
     mov rdi, rax
     call p_error
-L_if_else_139:
-L_if_end_139:
+L_if_else_142:
+L_if_end_142:
 section .rodata
 str_33: db 117, 110, 101, 120, 112, 101, 99, 116, 101, 100, 32, 115, 116, 97, 116, 101, 109, 101, 110, 116, 0
 section .text
@@ -6544,18 +6680,18 @@ section .text
     mov rax, 0
     leave
     ret
-FRAME_77 equ 208
+FRAME_78 equ 224
 parse_params:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_78
+    sub rsp, strict dword FRAME_79
     call ast_list_new
     push rax
     pop rax
     mov rdi, rax
     call ppush
     call p_next
-L_rep_start_143:
+L_rep_start_146:
     mov rax, QWORD [cur_tok]
     push rax
     mov rax, 10
@@ -6564,7 +6700,7 @@ L_rep_start_143:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_rep_end_143
+    jz L_rep_end_146
     mov rax, 0
     push rax
     pop rax
@@ -6578,7 +6714,7 @@ L_rep_start_143:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_144
+    jz L_if_else_147
     mov rax, QWORD [psp]
     push rax
     mov rax, 1
@@ -6592,8 +6728,8 @@ L_rep_start_143:
     pop r11
     mov QWORD [pstk + r11 * 8], r12
     call p_next
-L_if_else_144:
-L_if_end_144:
+L_if_else_147:
+L_if_end_147:
     mov rax, QWORD [cur_tok]
     push rax
     pop rax
@@ -6606,7 +6742,7 @@ L_if_end_144:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_if_else_145
+    jz L_if_else_148
 section .rodata
 str_34: db 101, 120, 112, 101, 99, 116, 101, 100, 32, 112, 97, 114, 97, 109, 101, 116, 101, 114, 32, 116, 121, 112, 101, 0
 section .text
@@ -6615,8 +6751,8 @@ section .text
     pop rax
     mov rdi, rax
     call p_error
-L_if_else_145:
-L_if_end_145:
+L_if_else_148:
+L_if_end_148:
     mov rax, QWORD [cur_tok]
     push rax
     pop rax
@@ -6631,7 +6767,7 @@ L_if_end_145:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_146
+    jz L_if_else_149
     mov rax, QWORD [psp]
     push rax
     mov rax, 2
@@ -6645,8 +6781,8 @@ L_if_end_145:
     pop r11
     mov QWORD [pstk + r11 * 8], r12
     call p_next
-L_if_else_146:
-L_if_end_146:
+L_if_else_149:
+L_if_end_149:
     mov rax, 3
     push rax
     pop rax
@@ -6714,21 +6850,21 @@ L_if_end_146:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_147
+    jz L_if_else_150
     call p_next
-L_if_else_147:
-L_if_end_147:
-    jmp L_rep_start_143
-L_rep_end_143:
+L_if_else_150:
+L_if_end_150:
+    jmp L_rep_start_146
+L_rep_end_146:
     call p_next
     call ppop
     leave
     ret
-FRAME_78 equ 16
+FRAME_79 equ 16
 parse_function:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_79
+    sub rsp, strict dword FRAME_80
     mov rax, QWORD [cur_ptr]
     push rax
     pop rax
@@ -6769,7 +6905,7 @@ parse_function:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_148
+    jz L_if_else_151
     call p_next
     mov rax, QWORD [cur_tok]
     push rax
@@ -6779,7 +6915,7 @@ parse_function:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_149
+    jz L_if_else_152
     mov rax, QWORD [psp]
     push rax
     mov rax, 1
@@ -6793,8 +6929,8 @@ parse_function:
     pop r11
     mov QWORD [pstk + r11 * 8], r12
     call p_next
-L_if_else_149:
-L_if_end_149:
+L_if_else_152:
+L_if_end_152:
     mov rax, QWORD [cur_tok]
     push rax
     pop rax
@@ -6807,7 +6943,7 @@ L_if_end_149:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_if_else_150
+    jz L_if_else_153
 section .rodata
 str_35: db 101, 120, 112, 101, 99, 116, 101, 100, 32, 114, 101, 116, 117, 114, 110, 32, 116, 121, 112, 101, 0
 section .text
@@ -6816,8 +6952,8 @@ section .text
     pop rax
     mov rdi, rax
     call p_error
-L_if_else_150:
-L_if_end_150:
+L_if_else_153:
+L_if_end_153:
     mov rax, QWORD [psp]
     push rax
     mov rax, 2
@@ -6839,7 +6975,7 @@ L_if_end_150:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_151
+    jz L_if_else_154
     mov rax, QWORD [psp]
     push rax
     mov rax, 1
@@ -6853,10 +6989,10 @@ L_if_end_150:
     pop r11
     mov QWORD [pstk + r11 * 8], r12
     call p_next
+L_if_else_154:
+L_if_end_154:
 L_if_else_151:
 L_if_end_151:
-L_if_else_148:
-L_if_end_148:
     call parse_block
     mov QWORD [rbp - 8], rax
     call ppop
@@ -6896,11 +7032,11 @@ L_if_end_148:
     call ast_func
     leave
     ret
-FRAME_79 equ 48
+FRAME_80 equ 48
 parse_top_decl:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_80
+    sub rsp, strict dword FRAME_81
     mov rax, QWORD [cur_tok]
     push rax
     pop rax
@@ -6920,7 +7056,7 @@ parse_top_decl:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_152
+    jz L_if_else_155
     mov rax, QWORD [psp]
     push rax
     mov rax, 1
@@ -6934,8 +7070,8 @@ parse_top_decl:
     pop r11
     mov QWORD [pstk + r11 * 8], r12
     call p_next
-L_if_else_152:
-L_if_end_152:
+L_if_else_155:
+L_if_end_155:
     mov rax, 3
     push rax
     pop rax
@@ -6960,7 +7096,7 @@ L_if_end_152:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_153
+    jz L_if_else_156
     call p_next
     mov rax, 4
     push rax
@@ -7002,8 +7138,8 @@ L_if_end_152:
     call ast_arrdecl
     leave
     ret
-L_if_else_153:
-L_if_end_153:
+L_if_else_156:
+L_if_end_156:
     mov rax, 14
     push rax
     pop rax
@@ -7036,7 +7172,7 @@ L_if_end_153:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_154
+    jz L_if_else_157
     mov rax, QWORD [rbp - 56]
     push rax
     mov rax, QWORD [rbp - 48]
@@ -7052,8 +7188,8 @@ L_if_end_153:
     call p_make_const
     leave
     ret
-L_if_else_154:
-L_if_end_154:
+L_if_else_157:
+L_if_end_157:
     mov rax, QWORD [rbp - 72]
     push rax
     mov rax, QWORD [rbp - 64]
@@ -7073,11 +7209,11 @@ L_if_end_154:
     call ast_globalvar
     leave
     ret
-FRAME_80 equ 80
+FRAME_81 equ 80
 parse_program:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_81
+    sub rsp, strict dword FRAME_82
     call p_next
     call ast_list_new
     push rax
@@ -7085,7 +7221,7 @@ parse_program:
     mov rdi, rax
     call ppush
     call p_skip_nl
-L_rep_start_155:
+L_rep_start_158:
     mov rax, QWORD [cur_tok]
     push rax
     mov rax, 0
@@ -7094,7 +7230,7 @@ L_rep_start_155:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_rep_end_155
+    jz L_rep_end_158
     mov rax, 0
     mov QWORD [rbp - 8], rax
     mov rax, 0
@@ -7107,7 +7243,7 @@ L_rep_start_155:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_156
+    jz L_if_else_159
     call p_next
     mov rax, QWORD [cur_tok]
     push rax
@@ -7117,12 +7253,12 @@ L_rep_start_155:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_157
+    jz L_if_else_160
     mov rax, 1
     mov byte [is_super], al
     call p_next
-L_if_else_157:
-L_if_end_157:
+L_if_else_160:
+L_if_end_160:
     mov rax, QWORD [cur_tok]
     push rax
     mov rax, 6
@@ -7131,7 +7267,7 @@ L_if_end_157:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_158
+    jz L_if_else_161
     mov rax, QWORD [cur_ptr]
     push rax
     mov rax, QWORD [cur_len]
@@ -7141,8 +7277,8 @@ L_if_end_157:
     pop rax
     mov rdi, rax
     call lexer_use_file
-    jmp L_if_end_158
-L_if_else_158:
+    jmp L_if_end_161
+L_if_else_161:
     mov rax, 3
     push rax
     pop rax
@@ -7157,14 +7293,14 @@ L_if_else_158:
     pop rax
     mov rdi, rax
     call lexer_use_module
-L_if_end_158:
+L_if_end_161:
     mov rax, 0
     mov byte [is_super], al
     call p_next
     mov rax, 1
     mov QWORD [rbp - 8], rax
-L_if_else_156:
-L_if_end_156:
+L_if_else_159:
+L_if_end_159:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 0
@@ -7192,7 +7328,7 @@ L_if_end_156:
     and al, bl
     movzx rax, al
     test rax, rax
-    jz L_if_else_159
+    jz L_if_else_162
     call parse_top_decl
     mov QWORD [rbp - 16], rax
     mov rax, QWORD [psp]
@@ -7214,8 +7350,8 @@ L_if_end_156:
     call ast_list_append
     mov rax, 1
     mov QWORD [rbp - 8], rax
-L_if_else_159:
-L_if_end_159:
+L_if_else_162:
+L_if_end_162:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 0
@@ -7239,7 +7375,7 @@ L_if_end_159:
     and al, bl
     movzx rax, al
     test rax, rax
-    jz L_if_else_160
+    jz L_if_else_163
     call parse_function
     mov QWORD [rbp - 16], rax
     mov rax, QWORD [psp]
@@ -7261,8 +7397,8 @@ L_if_end_159:
     call ast_list_append
     mov rax, 1
     mov QWORD [rbp - 8], rax
-L_if_else_160:
-L_if_end_160:
+L_if_else_163:
+L_if_end_163:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 0
@@ -7271,7 +7407,7 @@ L_if_end_160:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_161
+    jz L_if_else_164
 section .rodata
 str_36: db 117, 110, 101, 120, 112, 101, 99, 116, 101, 100, 32, 116, 111, 107, 101, 110, 32, 97, 116, 32, 116, 111, 112, 32, 108, 101, 118, 101, 108, 0
 section .text
@@ -7280,11 +7416,11 @@ section .text
     pop rax
     mov rdi, rax
     call p_error
-L_if_else_161:
-L_if_end_161:
+L_if_else_164:
+L_if_end_164:
     call p_skip_nl
-    jmp L_rep_start_155
-L_rep_end_155:
+    jmp L_rep_start_158
+L_rep_end_158:
     call ppop
     mov QWORD [rbp - 24], rax
     mov rax, QWORD [rbp - 24]
@@ -7294,11 +7430,11 @@ L_rep_end_155:
     call ast_program
     leave
     ret
-FRAME_81 equ 32
+FRAME_82 equ 32
 ln:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_82
+    sub rsp, strict dword FRAME_83
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, QWORD [rbp - 8]
@@ -7309,11 +7445,11 @@ ln:
     call emit_nl
     leave
     ret
-FRAME_82 equ 16
+FRAME_83 equ 16
 lab:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_83
+    sub rsp, strict dword FRAME_84
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, rsi
@@ -7330,11 +7466,11 @@ lab:
     call print_uint
     leave
     ret
-FRAME_83 equ 16
+FRAME_84 equ 16
 labln:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_84
+    sub rsp, strict dword FRAME_85
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, rsi
@@ -7351,11 +7487,11 @@ labln:
     call emit_nl
     leave
     ret
-FRAME_84 equ 16
+FRAME_85 equ 16
 labdef:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_85
+    sub rsp, strict dword FRAME_86
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, rsi
@@ -7379,11 +7515,11 @@ section .text
     call ln
     leave
     ret
-FRAME_85 equ 16
+FRAME_86 equ 16
 str_eq:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_86
+    sub rsp, strict dword FRAME_87
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, rsi
@@ -7400,15 +7536,15 @@ str_eq:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_if_else_162
+    jz L_if_else_165
     mov rax, 0
     leave
     ret
-L_if_else_162:
-L_if_end_162:
+L_if_else_165:
+L_if_end_165:
     mov rax, 0
     mov QWORD [rbp - 40], rax
-L_rep_start_163:
+L_rep_start_166:
     mov rax, QWORD [rbp - 40]
     push rax
     mov rax, QWORD [rbp - 16]
@@ -7417,7 +7553,7 @@ L_rep_start_163:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_rep_end_163
+    jz L_rep_end_166
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, QWORD [rbp - 40]
@@ -7436,28 +7572,28 @@ L_rep_start_163:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_if_else_164
+    jz L_if_else_167
     mov rax, 0
     leave
     ret
-L_if_else_164:
-L_if_end_164:
+L_if_else_167:
+L_if_end_167:
     mov rax, QWORD [rbp - 40]
     push rax
     mov rax, 1
     pop rbx
     add rax, rbx
     mov QWORD [rbp - 40], rax
-    jmp L_rep_start_163
-L_rep_end_163:
+    jmp L_rep_start_166
+L_rep_end_166:
     mov rax, 1
     leave
     ret
-FRAME_86 equ 48
+FRAME_87 equ 48
 type_size:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_87
+    sub rsp, strict dword FRAME_88
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, rsi
@@ -7470,12 +7606,12 @@ type_size:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_165
+    jz L_if_else_168
     mov rax, 8
     leave
     ret
-L_if_else_165:
-L_if_end_165:
+L_if_else_168:
+L_if_end_168:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 29
@@ -7523,12 +7659,12 @@ L_if_end_165:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_if_else_166
+    jz L_if_else_169
     mov rax, 1
     leave
     ret
-L_if_else_166:
-L_if_end_166:
+L_if_else_169:
+L_if_end_169:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 43
@@ -7550,12 +7686,12 @@ L_if_end_166:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_if_else_167
+    jz L_if_else_170
     mov rax, 1
     leave
     ret
-L_if_else_167:
-L_if_end_167:
+L_if_else_170:
+L_if_end_170:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 31
@@ -7577,12 +7713,12 @@ L_if_end_167:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_if_else_168
+    jz L_if_else_171
     mov rax, 2
     leave
     ret
-L_if_else_168:
-L_if_end_168:
+L_if_else_171:
+L_if_end_171:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 33
@@ -7604,20 +7740,20 @@ L_if_end_168:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_if_else_169
+    jz L_if_else_172
     mov rax, 4
     leave
     ret
-L_if_else_169:
-L_if_end_169:
+L_if_else_172:
+L_if_end_172:
     mov rax, 8
     leave
     ret
-FRAME_87 equ 16
+FRAME_88 equ 16
 type_signed:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_88
+    sub rsp, strict dword FRAME_89
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, rsi
@@ -7630,12 +7766,12 @@ type_signed:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_170
+    jz L_if_else_173
     mov rax, 0
     leave
     ret
-L_if_else_170:
-L_if_end_170:
+L_if_else_173:
+L_if_end_173:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 29
@@ -7670,97 +7806,17 @@ L_if_end_170:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_if_else_171
-    mov rax, 1
-    leave
-    ret
-L_if_else_171:
-L_if_end_171:
-    mov rax, 0
-    leave
-    ret
-FRAME_88 equ 16
-size_kw:
-    push rbp
-    mov rbp, rsp
-    sub rsp, strict dword FRAME_89
-    mov rax, rdi
-    mov QWORD [rbp - 8], rax
-    mov rax, QWORD [rbp - 8]
-    push rax
-    mov rax, 1
-    pop rbx
-    cmp rbx, rax
-    sete al
-    movzx rax, al
-    test rax, rax
-    jz L_if_else_172
-section .rodata
-str_38: db 98, 121, 116, 101, 0
-section .text
-    lea rax, [rel str_38]
-    push rax
-    pop rax
-    mov rdi, rax
-    call write_str
-    leave
-    ret
-L_if_else_172:
-L_if_end_172:
-    mov rax, QWORD [rbp - 8]
-    push rax
-    mov rax, 2
-    pop rbx
-    cmp rbx, rax
-    sete al
-    movzx rax, al
-    test rax, rax
-    jz L_if_else_173
-section .rodata
-str_39: db 119, 111, 114, 100, 0
-section .text
-    lea rax, [rel str_39]
-    push rax
-    pop rax
-    mov rdi, rax
-    call write_str
-    leave
-    ret
-L_if_else_173:
-L_if_end_173:
-    mov rax, QWORD [rbp - 8]
-    push rax
-    mov rax, 4
-    pop rbx
-    cmp rbx, rax
-    sete al
-    movzx rax, al
-    test rax, rax
     jz L_if_else_174
-section .rodata
-str_40: db 100, 119, 111, 114, 100, 0
-section .text
-    lea rax, [rel str_40]
-    push rax
-    pop rax
-    mov rdi, rax
-    call write_str
+    mov rax, 1
     leave
     ret
 L_if_else_174:
 L_if_end_174:
-section .rodata
-str_41: db 81, 87, 79, 82, 68, 0
-section .text
-    lea rax, [rel str_41]
-    push rax
-    pop rax
-    mov rdi, rax
-    call write_str
+    mov rax, 0
     leave
     ret
 FRAME_89 equ 16
-emit_ax:
+size_kw:
     push rbp
     mov rbp, rsp
     sub rsp, strict dword FRAME_90
@@ -7776,9 +7832,9 @@ emit_ax:
     test rax, rax
     jz L_if_else_175
 section .rodata
-str_42: db 97, 108, 0
+str_38: db 98, 121, 116, 101, 0
 section .text
-    lea rax, [rel str_42]
+    lea rax, [rel str_38]
     push rax
     pop rax
     mov rdi, rax
@@ -7797,9 +7853,9 @@ L_if_end_175:
     test rax, rax
     jz L_if_else_176
 section .rodata
-str_43: db 97, 120, 0
+str_39: db 119, 111, 114, 100, 0
 section .text
-    lea rax, [rel str_43]
+    lea rax, [rel str_39]
     push rax
     pop rax
     mov rdi, rax
@@ -7818,9 +7874,9 @@ L_if_end_176:
     test rax, rax
     jz L_if_else_177
 section .rodata
-str_44: db 101, 97, 120, 0
+str_40: db 100, 119, 111, 114, 100, 0
 section .text
-    lea rax, [rel str_44]
+    lea rax, [rel str_40]
     push rax
     pop rax
     mov rdi, rax
@@ -7830,9 +7886,9 @@ section .text
 L_if_else_177:
 L_if_end_177:
 section .rodata
-str_45: db 114, 97, 120, 0
+str_41: db 81, 87, 79, 82, 68, 0
 section .text
-    lea rax, [rel str_45]
+    lea rax, [rel str_41]
     push rax
     pop rax
     mov rdi, rax
@@ -7840,7 +7896,7 @@ section .text
     leave
     ret
 FRAME_90 equ 16
-emit_r12:
+emit_ax:
     push rbp
     mov rbp, rsp
     sub rsp, strict dword FRAME_91
@@ -7856,9 +7912,9 @@ emit_r12:
     test rax, rax
     jz L_if_else_178
 section .rodata
-str_46: db 114, 49, 50, 98, 0
+str_42: db 97, 108, 0
 section .text
-    lea rax, [rel str_46]
+    lea rax, [rel str_42]
     push rax
     pop rax
     mov rdi, rax
@@ -7877,9 +7933,9 @@ L_if_end_178:
     test rax, rax
     jz L_if_else_179
 section .rodata
-str_47: db 114, 49, 50, 119, 0
+str_43: db 97, 120, 0
 section .text
-    lea rax, [rel str_47]
+    lea rax, [rel str_43]
     push rax
     pop rax
     mov rdi, rax
@@ -7898,6 +7954,86 @@ L_if_end_179:
     test rax, rax
     jz L_if_else_180
 section .rodata
+str_44: db 101, 97, 120, 0
+section .text
+    lea rax, [rel str_44]
+    push rax
+    pop rax
+    mov rdi, rax
+    call write_str
+    leave
+    ret
+L_if_else_180:
+L_if_end_180:
+section .rodata
+str_45: db 114, 97, 120, 0
+section .text
+    lea rax, [rel str_45]
+    push rax
+    pop rax
+    mov rdi, rax
+    call write_str
+    leave
+    ret
+FRAME_91 equ 16
+emit_r12:
+    push rbp
+    mov rbp, rsp
+    sub rsp, strict dword FRAME_92
+    mov rax, rdi
+    mov QWORD [rbp - 8], rax
+    mov rax, QWORD [rbp - 8]
+    push rax
+    mov rax, 1
+    pop rbx
+    cmp rbx, rax
+    sete al
+    movzx rax, al
+    test rax, rax
+    jz L_if_else_181
+section .rodata
+str_46: db 114, 49, 50, 98, 0
+section .text
+    lea rax, [rel str_46]
+    push rax
+    pop rax
+    mov rdi, rax
+    call write_str
+    leave
+    ret
+L_if_else_181:
+L_if_end_181:
+    mov rax, QWORD [rbp - 8]
+    push rax
+    mov rax, 2
+    pop rbx
+    cmp rbx, rax
+    sete al
+    movzx rax, al
+    test rax, rax
+    jz L_if_else_182
+section .rodata
+str_47: db 114, 49, 50, 119, 0
+section .text
+    lea rax, [rel str_47]
+    push rax
+    pop rax
+    mov rdi, rax
+    call write_str
+    leave
+    ret
+L_if_else_182:
+L_if_end_182:
+    mov rax, QWORD [rbp - 8]
+    push rax
+    mov rax, 4
+    pop rbx
+    cmp rbx, rax
+    sete al
+    movzx rax, al
+    test rax, rax
+    jz L_if_else_183
+section .rodata
 str_48: db 114, 49, 50, 100, 0
 section .text
     lea rax, [rel str_48]
@@ -7907,8 +8043,8 @@ section .text
     call write_str
     leave
     ret
-L_if_else_180:
-L_if_end_180:
+L_if_else_183:
+L_if_end_183:
 section .rodata
 str_49: db 114, 49, 50, 0
 section .text
@@ -7919,11 +8055,11 @@ section .text
     call write_str
     leave
     ret
-FRAME_91 equ 16
+FRAME_92 equ 16
 load_prefix:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_92
+    sub rsp, strict dword FRAME_93
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, rsi
@@ -7936,7 +8072,7 @@ load_prefix:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_181
+    jz L_if_else_184
 section .rodata
 str_50: db 32, 32, 32, 32, 109, 111, 118, 32, 114, 97, 120, 44, 32, 81, 87, 79, 82, 68, 32, 91, 0
 section .text
@@ -7947,8 +8083,8 @@ section .text
     call write_str
     leave
     ret
-L_if_else_181:
-L_if_end_181:
+L_if_else_184:
+L_if_end_184:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 4
@@ -7957,82 +8093,7 @@ L_if_end_181:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_182
-    mov rax, QWORD [rbp - 16]
-    push rax
-    mov rax, 1
-    pop rbx
-    cmp rbx, rax
-    sete al
-    movzx rax, al
-    test rax, rax
-    jz L_if_else_183
-section .rodata
-str_51: db 32, 32, 32, 32, 109, 111, 118, 115, 120, 100, 32, 114, 97, 120, 44, 32, 100, 119, 111, 114, 100, 32, 91, 0
-section .text
-    lea rax, [rel str_51]
-    push rax
-    pop rax
-    mov rdi, rax
-    call write_str
-    leave
-    ret
-L_if_else_183:
-L_if_end_183:
-section .rodata
-str_52: db 32, 32, 32, 32, 109, 111, 118, 32, 101, 97, 120, 44, 32, 100, 119, 111, 114, 100, 32, 91, 0
-section .text
-    lea rax, [rel str_52]
-    push rax
-    pop rax
-    mov rdi, rax
-    call write_str
-    leave
-    ret
-L_if_else_182:
-L_if_end_182:
-    mov rax, QWORD [rbp - 8]
-    push rax
-    mov rax, 2
-    pop rbx
-    cmp rbx, rax
-    sete al
-    movzx rax, al
-    test rax, rax
-    jz L_if_else_184
-    mov rax, QWORD [rbp - 16]
-    push rax
-    mov rax, 1
-    pop rbx
-    cmp rbx, rax
-    sete al
-    movzx rax, al
-    test rax, rax
     jz L_if_else_185
-section .rodata
-str_53: db 32, 32, 32, 32, 109, 111, 118, 115, 120, 32, 114, 97, 120, 44, 32, 119, 111, 114, 100, 32, 91, 0
-section .text
-    lea rax, [rel str_53]
-    push rax
-    pop rax
-    mov rdi, rax
-    call write_str
-    leave
-    ret
-L_if_else_185:
-L_if_end_185:
-section .rodata
-str_54: db 32, 32, 32, 32, 109, 111, 118, 122, 120, 32, 114, 97, 120, 44, 32, 119, 111, 114, 100, 32, 91, 0
-section .text
-    lea rax, [rel str_54]
-    push rax
-    pop rax
-    mov rdi, rax
-    call write_str
-    leave
-    ret
-L_if_else_184:
-L_if_end_184:
     mov rax, QWORD [rbp - 16]
     push rax
     mov rax, 1
@@ -8043,6 +8104,81 @@ L_if_end_184:
     test rax, rax
     jz L_if_else_186
 section .rodata
+str_51: db 32, 32, 32, 32, 109, 111, 118, 115, 120, 100, 32, 114, 97, 120, 44, 32, 100, 119, 111, 114, 100, 32, 91, 0
+section .text
+    lea rax, [rel str_51]
+    push rax
+    pop rax
+    mov rdi, rax
+    call write_str
+    leave
+    ret
+L_if_else_186:
+L_if_end_186:
+section .rodata
+str_52: db 32, 32, 32, 32, 109, 111, 118, 32, 101, 97, 120, 44, 32, 100, 119, 111, 114, 100, 32, 91, 0
+section .text
+    lea rax, [rel str_52]
+    push rax
+    pop rax
+    mov rdi, rax
+    call write_str
+    leave
+    ret
+L_if_else_185:
+L_if_end_185:
+    mov rax, QWORD [rbp - 8]
+    push rax
+    mov rax, 2
+    pop rbx
+    cmp rbx, rax
+    sete al
+    movzx rax, al
+    test rax, rax
+    jz L_if_else_187
+    mov rax, QWORD [rbp - 16]
+    push rax
+    mov rax, 1
+    pop rbx
+    cmp rbx, rax
+    sete al
+    movzx rax, al
+    test rax, rax
+    jz L_if_else_188
+section .rodata
+str_53: db 32, 32, 32, 32, 109, 111, 118, 115, 120, 32, 114, 97, 120, 44, 32, 119, 111, 114, 100, 32, 91, 0
+section .text
+    lea rax, [rel str_53]
+    push rax
+    pop rax
+    mov rdi, rax
+    call write_str
+    leave
+    ret
+L_if_else_188:
+L_if_end_188:
+section .rodata
+str_54: db 32, 32, 32, 32, 109, 111, 118, 122, 120, 32, 114, 97, 120, 44, 32, 119, 111, 114, 100, 32, 91, 0
+section .text
+    lea rax, [rel str_54]
+    push rax
+    pop rax
+    mov rdi, rax
+    call write_str
+    leave
+    ret
+L_if_else_187:
+L_if_end_187:
+    mov rax, QWORD [rbp - 16]
+    push rax
+    mov rax, 1
+    pop rbx
+    cmp rbx, rax
+    sete al
+    movzx rax, al
+    test rax, rax
+    jz L_if_else_189
+section .rodata
 str_55: db 32, 32, 32, 32, 109, 111, 118, 115, 120, 32, 114, 97, 120, 44, 32, 98, 121, 116, 101, 32, 91, 0
 section .text
     lea rax, [rel str_55]
@@ -8052,8 +8188,8 @@ section .text
     call write_str
     leave
     ret
-L_if_else_186:
-L_if_end_186:
+L_if_else_189:
+L_if_end_189:
 section .rodata
 str_56: db 32, 32, 32, 32, 109, 111, 118, 122, 120, 32, 114, 97, 120, 44, 32, 98, 121, 116, 101, 32, 91, 0
 section .text
@@ -8064,11 +8200,11 @@ section .text
     call write_str
     leave
     ret
-FRAME_92 equ 16
+FRAME_93 equ 16
 norm_after_load:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_93
+    sub rsp, strict dword FRAME_94
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, rsi
@@ -8081,12 +8217,12 @@ norm_after_load:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_187
+    jz L_if_else_190
     mov rax, 0
     leave
     ret
-L_if_else_187:
-L_if_end_187:
+L_if_else_190:
+L_if_end_190:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 44
@@ -8095,7 +8231,7 @@ L_if_end_187:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_188
+    jz L_if_else_191
 section .rodata
 str_57: db 32, 32, 32, 32, 97, 110, 100, 32, 114, 97, 120, 44, 32, 49, 53, 0
 section .text
@@ -8106,8 +8242,8 @@ section .text
     call ln
     leave
     ret
-L_if_else_188:
-L_if_end_188:
+L_if_else_191:
+L_if_end_191:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 43
@@ -8116,7 +8252,7 @@ L_if_end_188:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_189
+    jz L_if_else_192
 section .rodata
 str_58: db 32, 32, 32, 32, 115, 104, 108, 32, 114, 97, 120, 44, 32, 54, 48, 0
 section .text
@@ -8135,23 +8271,23 @@ section .text
     call ln
     leave
     ret
-L_if_else_189:
-L_if_end_189:
+L_if_else_192:
+L_if_end_192:
     mov rax, 0
     leave
     ret
-FRAME_93 equ 16
+FRAME_94 equ 16
 loc_find:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_94
+    sub rsp, strict dword FRAME_95
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, rsi
     mov QWORD [rbp - 16], rax
     mov rax, QWORD [loc_count]
     mov QWORD [rbp - 24], rax
-L_rep_start_190:
+L_rep_start_193:
     mov rax, QWORD [rbp - 24]
     push rax
     mov rax, 0
@@ -8160,7 +8296,7 @@ L_rep_start_190:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_rep_end_190
+    jz L_rep_end_193
     mov rax, QWORD [rbp - 24]
     push rax
     mov rax, 1
@@ -8197,7 +8333,7 @@ L_rep_start_190:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_191
+    jz L_if_else_194
     mov rax, QWORD [rbp - 24]
     push rax
     mov rax, 1
@@ -8205,18 +8341,18 @@ L_rep_start_190:
     add rax, rbx
     leave
     ret
-L_if_else_191:
-L_if_end_191:
-    jmp L_rep_start_190
-L_rep_end_190:
+L_if_else_194:
+L_if_end_194:
+    jmp L_rep_start_193
+L_rep_end_193:
     mov rax, 0
     leave
     ret
-FRAME_94 equ 32
+FRAME_95 equ 32
 loc_add:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_95
+    sub rsp, strict dword FRAME_96
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, rsi
@@ -8284,18 +8420,18 @@ loc_add:
     mov rax, QWORD [cg_frame]
     leave
     ret
-FRAME_95 equ 48
+FRAME_96 equ 48
 glb_find:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_96
+    sub rsp, strict dword FRAME_97
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, rsi
     mov QWORD [rbp - 16], rax
     mov rax, QWORD [glb_count]
     mov QWORD [rbp - 24], rax
-L_rep_start_192:
+L_rep_start_195:
     mov rax, QWORD [rbp - 24]
     push rax
     mov rax, 0
@@ -8304,7 +8440,7 @@ L_rep_start_192:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_rep_end_192
+    jz L_rep_end_195
     mov rax, QWORD [rbp - 24]
     push rax
     mov rax, 1
@@ -8341,7 +8477,7 @@ L_rep_start_192:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_193
+    jz L_if_else_196
     mov rax, QWORD [rbp - 24]
     push rax
     mov rax, 1
@@ -8349,18 +8485,18 @@ L_rep_start_192:
     add rax, rbx
     leave
     ret
-L_if_else_193:
-L_if_end_193:
-    jmp L_rep_start_192
-L_rep_end_192:
+L_if_else_196:
+L_if_end_196:
+    jmp L_rep_start_195
+L_rep_end_195:
     mov rax, 0
     leave
     ret
-FRAME_96 equ 32
+FRAME_97 equ 32
 glb_add:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_97
+    sub rsp, strict dword FRAME_98
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, rsi
@@ -8410,11 +8546,11 @@ glb_add:
     mov rax, 0
     leave
     ret
-FRAME_97 equ 48
+FRAME_98 equ 48
 sym_lookup:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_98
+    sub rsp, strict dword FRAME_99
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, rsi
@@ -8437,7 +8573,7 @@ sym_lookup:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_if_else_194
+    jz L_if_else_197
     mov rax, QWORD [rbp - 24]
     push rax
     mov rax, 1
@@ -8471,8 +8607,8 @@ sym_lookup:
     mov rax, 1
     leave
     ret
-L_if_else_194:
-L_if_end_194:
+L_if_else_197:
+L_if_end_197:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, QWORD [rbp - 16]
@@ -8491,7 +8627,7 @@ L_if_end_194:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_if_else_195
+    jz L_if_else_198
     mov rax, QWORD [rbp - 32]
     push rax
     mov rax, 1
@@ -8525,23 +8661,23 @@ L_if_end_194:
     mov rax, 1
     leave
     ret
-L_if_else_195:
-L_if_end_195:
+L_if_else_198:
+L_if_end_198:
     mov rax, 0
     leave
     ret
-FRAME_98 equ 32
+FRAME_99 equ 32
 con_find:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_99
+    sub rsp, strict dword FRAME_100
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, rsi
     mov QWORD [rbp - 16], rax
     mov rax, QWORD [con_count]
     mov QWORD [rbp - 24], rax
-L_rep_start_196:
+L_rep_start_199:
     mov rax, QWORD [rbp - 24]
     push rax
     mov rax, 0
@@ -8550,7 +8686,7 @@ L_rep_start_196:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_rep_end_196
+    jz L_rep_end_199
     mov rax, QWORD [rbp - 24]
     push rax
     mov rax, 1
@@ -8587,7 +8723,7 @@ L_rep_start_196:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_197
+    jz L_if_else_200
     mov rax, QWORD [rbp - 24]
     push rax
     mov rax, 1
@@ -8595,18 +8731,18 @@ L_rep_start_196:
     add rax, rbx
     leave
     ret
-L_if_else_197:
-L_if_end_197:
-    jmp L_rep_start_196
-L_rep_end_196:
+L_if_else_200:
+L_if_end_200:
+    jmp L_rep_start_199
+L_rep_end_199:
     mov rax, 0
     leave
     ret
-FRAME_99 equ 32
+FRAME_100 equ 32
 con_add:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_100
+    sub rsp, strict dword FRAME_101
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, rsi
@@ -8640,18 +8776,18 @@ con_add:
     mov rax, 0
     leave
     ret
-FRAME_100 equ 32
+FRAME_101 equ 32
 nib_find:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_101
+    sub rsp, strict dword FRAME_102
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, rsi
     mov QWORD [rbp - 16], rax
     mov rax, QWORD [nib_count]
     mov QWORD [rbp - 24], rax
-L_rep_start_198:
+L_rep_start_201:
     mov rax, QWORD [rbp - 24]
     push rax
     mov rax, 0
@@ -8660,7 +8796,7 @@ L_rep_start_198:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_rep_end_198
+    jz L_rep_end_201
     mov rax, QWORD [rbp - 24]
     push rax
     mov rax, 1
@@ -8697,7 +8833,7 @@ L_rep_start_198:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_199
+    jz L_if_else_202
     mov rax, QWORD [rbp - 24]
     push rax
     mov rax, 1
@@ -8705,18 +8841,18 @@ L_rep_start_198:
     add rax, rbx
     leave
     ret
-L_if_else_199:
-L_if_end_199:
-    jmp L_rep_start_198
-L_rep_end_198:
+L_if_else_202:
+L_if_end_202:
+    jmp L_rep_start_201
+L_rep_end_201:
     mov rax, 0
     leave
     ret
-FRAME_101 equ 32
+FRAME_102 equ 32
 nib_add:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_102
+    sub rsp, strict dword FRAME_103
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, rsi
@@ -8750,11 +8886,11 @@ nib_add:
     mov rax, 0
     leave
     ret
-FRAME_102 equ 32
+FRAME_103 equ 32
 is_nib_type:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_103
+    sub rsp, strict dword FRAME_104
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, QWORD [rbp - 8]
@@ -8779,11 +8915,11 @@ is_nib_type:
     movzx rax, al
     leave
     ret
-FRAME_103 equ 16
+FRAME_104 equ 16
 const_eval:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_104
+    sub rsp, strict dword FRAME_105
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, QWORD [rbp - 8]
@@ -8798,14 +8934,14 @@ const_eval:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_200
+    jz L_if_else_203
     mov rax, QWORD [rbp - 8]
     mov r11, rax
     mov rax, QWORD [ast_a + r11 * 8]
     leave
     ret
-L_if_else_200:
-L_if_end_200:
+L_if_else_203:
+L_if_end_203:
     mov rax, QWORD [rbp - 16]
     push rax
     mov rax, 2
@@ -8814,14 +8950,14 @@ L_if_end_200:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_201
+    jz L_if_else_204
     mov rax, QWORD [rbp - 8]
     mov r11, rax
     mov rax, QWORD [ast_a + r11 * 8]
     leave
     ret
-L_if_else_201:
-L_if_end_201:
+L_if_else_204:
+L_if_end_204:
     mov rax, QWORD [rbp - 16]
     push rax
     mov rax, 4
@@ -8830,7 +8966,7 @@ L_if_end_201:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_202
+    jz L_if_else_205
     mov rax, QWORD [rbp - 8]
     mov r11, rax
     mov rax, QWORD [ast_name_ptr + r11 * 8]
@@ -8853,7 +8989,7 @@ L_if_end_201:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_if_else_203
+    jz L_if_else_206
     mov rax, QWORD [rbp - 24]
     push rax
     mov rax, 1
@@ -8865,18 +9001,18 @@ L_if_end_201:
     mov rax, QWORD [con_value + r11 * 8]
     leave
     ret
-L_if_else_203:
-L_if_end_203:
-L_if_else_202:
-L_if_end_202:
+L_if_else_206:
+L_if_end_206:
+L_if_else_205:
+L_if_end_205:
     mov rax, 0
     leave
     ret
-FRAME_104 equ 32
+FRAME_105 equ 32
 emit_var:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_105
+    sub rsp, strict dword FRAME_106
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, rsi
@@ -8899,7 +9035,7 @@ emit_var:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_204
+    jz L_if_else_207
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, QWORD [rbp - 16]
@@ -8911,8 +9047,8 @@ emit_var:
     call write_bytes
     leave
     ret
-L_if_else_204:
-L_if_end_204:
+L_if_else_207:
+L_if_end_207:
 section .rodata
 str_60: db 114, 98, 112, 32, 45, 32, 0
 section .text
@@ -8936,11 +9072,11 @@ section .text
     call print_uint
     leave
     ret
-FRAME_105 equ 32
+FRAME_106 equ 32
 argreg:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_106
+    sub rsp, strict dword FRAME_107
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, QWORD [rbp - 8]
@@ -8951,7 +9087,7 @@ argreg:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_205
+    jz L_if_else_208
 section .rodata
 str_61: db 114, 100, 105, 0
 section .text
@@ -8962,8 +9098,8 @@ section .text
     call write_str
     leave
     ret
-L_if_else_205:
-L_if_end_205:
+L_if_else_208:
+L_if_end_208:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 1
@@ -8972,7 +9108,7 @@ L_if_end_205:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_206
+    jz L_if_else_209
 section .rodata
 str_62: db 114, 115, 105, 0
 section .text
@@ -8983,8 +9119,8 @@ section .text
     call write_str
     leave
     ret
-L_if_else_206:
-L_if_end_206:
+L_if_else_209:
+L_if_end_209:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 2
@@ -8993,7 +9129,7 @@ L_if_end_206:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_207
+    jz L_if_else_210
 section .rodata
 str_63: db 114, 100, 120, 0
 section .text
@@ -9004,8 +9140,8 @@ section .text
     call write_str
     leave
     ret
-L_if_else_207:
-L_if_end_207:
+L_if_else_210:
+L_if_end_210:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 3
@@ -9014,7 +9150,7 @@ L_if_end_207:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_208
+    jz L_if_else_211
 section .rodata
 str_64: db 114, 99, 120, 0
 section .text
@@ -9025,8 +9161,8 @@ section .text
     call write_str
     leave
     ret
-L_if_else_208:
-L_if_end_208:
+L_if_else_211:
+L_if_end_211:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 4
@@ -9035,7 +9171,7 @@ L_if_end_208:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_209
+    jz L_if_else_212
 section .rodata
 str_65: db 114, 56, 0
 section .text
@@ -9046,8 +9182,8 @@ section .text
     call write_str
     leave
     ret
-L_if_else_209:
-L_if_end_209:
+L_if_else_212:
+L_if_end_212:
 section .rodata
 str_66: db 114, 57, 0
 section .text
@@ -9058,16 +9194,16 @@ section .text
     call write_str
     leave
     ret
-FRAME_106 equ 16
+FRAME_107 equ 16
 gen_pop_args:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_107
+    sub rsp, strict dword FRAME_108
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, QWORD [rbp - 8]
     mov QWORD [rbp - 16], rax
-L_rep_start_210:
+L_rep_start_213:
     mov rax, QWORD [rbp - 16]
     push rax
     mov rax, 0
@@ -9076,7 +9212,7 @@ L_rep_start_210:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_rep_end_210
+    jz L_rep_end_213
     mov rax, QWORD [rbp - 16]
     push rax
     mov rax, 1
@@ -9114,16 +9250,16 @@ section .text
     pop rax
     mov rdi, rax
     call ln
-    jmp L_rep_start_210
-L_rep_end_210:
+    jmp L_rep_start_213
+L_rep_end_213:
     mov rax, 0
     leave
     ret
-FRAME_107 equ 16
+FRAME_108 equ 16
 gen_cmp:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_108
+    sub rsp, strict dword FRAME_109
     mov rax, rdi
     mov QWORD [rbp - 8], rax
 section .rodata
@@ -9173,11 +9309,11 @@ section .text
     call ln
     leave
     ret
-FRAME_108 equ 16
+FRAME_109 equ 16
 gen_binop_tail:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_109
+    sub rsp, strict dword FRAME_110
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, QWORD [rbp - 8]
@@ -9188,7 +9324,7 @@ gen_binop_tail:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_211
+    jz L_if_else_214
 section .rodata
 str_75: db 32, 32, 32, 32, 112, 111, 112, 32, 114, 98, 120, 0
 section .text
@@ -9207,8 +9343,8 @@ section .text
     call ln
     leave
     ret
-L_if_else_211:
-L_if_end_211:
+L_if_else_214:
+L_if_end_214:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 17
@@ -9217,7 +9353,7 @@ L_if_end_211:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_212
+    jz L_if_else_215
 section .rodata
 str_77: db 32, 32, 32, 32, 112, 111, 112, 32, 114, 98, 120, 0
 section .text
@@ -9252,8 +9388,8 @@ section .text
     call ln
     leave
     ret
-L_if_else_212:
-L_if_end_212:
+L_if_else_215:
+L_if_end_215:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 18
@@ -9262,7 +9398,7 @@ L_if_end_212:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_213
+    jz L_if_else_216
 section .rodata
 str_81: db 32, 32, 32, 32, 112, 111, 112, 32, 114, 98, 120, 0
 section .text
@@ -9281,8 +9417,8 @@ section .text
     call ln
     leave
     ret
-L_if_else_213:
-L_if_end_213:
+L_if_else_216:
+L_if_end_216:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 19
@@ -9291,7 +9427,7 @@ L_if_end_213:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_214
+    jz L_if_else_217
 section .rodata
 str_83: db 32, 32, 32, 32, 112, 111, 112, 32, 114, 98, 120, 0
 section .text
@@ -9326,8 +9462,8 @@ section .text
     call ln
     leave
     ret
-L_if_else_214:
-L_if_end_214:
+L_if_else_217:
+L_if_end_217:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 15
@@ -9336,7 +9472,7 @@ L_if_end_214:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_215
+    jz L_if_else_218
 section .rodata
 str_87: db 115, 101, 116, 101, 0
 section .text
@@ -9347,8 +9483,8 @@ section .text
     call gen_cmp
     leave
     ret
-L_if_else_215:
-L_if_end_215:
+L_if_else_218:
+L_if_end_218:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 38
@@ -9357,7 +9493,7 @@ L_if_end_215:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_216
+    jz L_if_else_219
 section .rodata
 str_88: db 115, 101, 116, 110, 101, 0
 section .text
@@ -9368,8 +9504,8 @@ section .text
     call gen_cmp
     leave
     ret
-L_if_else_216:
-L_if_end_216:
+L_if_else_219:
+L_if_end_219:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 20
@@ -9378,7 +9514,7 @@ L_if_end_216:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_217
+    jz L_if_else_220
 section .rodata
 str_89: db 115, 101, 116, 108, 0
 section .text
@@ -9389,8 +9525,8 @@ section .text
     call gen_cmp
     leave
     ret
-L_if_else_217:
-L_if_end_217:
+L_if_else_220:
+L_if_end_220:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 21
@@ -9399,7 +9535,7 @@ L_if_end_217:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_218
+    jz L_if_else_221
 section .rodata
 str_90: db 115, 101, 116, 103, 0
 section .text
@@ -9410,8 +9546,8 @@ section .text
     call gen_cmp
     leave
     ret
-L_if_else_218:
-L_if_end_218:
+L_if_else_221:
+L_if_end_221:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 22
@@ -9420,7 +9556,7 @@ L_if_end_218:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_219
+    jz L_if_else_222
 section .rodata
 str_91: db 115, 101, 116, 108, 101, 0
 section .text
@@ -9431,8 +9567,8 @@ section .text
     call gen_cmp
     leave
     ret
-L_if_else_219:
-L_if_end_219:
+L_if_else_222:
+L_if_end_222:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 23
@@ -9441,7 +9577,7 @@ L_if_end_219:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_220
+    jz L_if_else_223
 section .rodata
 str_92: db 115, 101, 116, 103, 101, 0
 section .text
@@ -9452,8 +9588,8 @@ section .text
     call gen_cmp
     leave
     ret
-L_if_else_220:
-L_if_end_220:
+L_if_else_223:
+L_if_end_223:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 39
@@ -9462,7 +9598,7 @@ L_if_end_220:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_221
+    jz L_if_else_224
 section .rodata
 str_93: db 32, 32, 32, 32, 112, 111, 112, 32, 114, 98, 120, 0
 section .text
@@ -9521,8 +9657,8 @@ section .text
     call ln
     leave
     ret
-L_if_else_221:
-L_if_end_221:
+L_if_else_224:
+L_if_end_224:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 40
@@ -9531,7 +9667,7 @@ L_if_end_221:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_222
+    jz L_if_else_225
 section .rodata
 str_100: db 32, 32, 32, 32, 112, 111, 112, 32, 114, 98, 120, 0
 section .text
@@ -9574,8 +9710,8 @@ section .text
     call ln
     leave
     ret
-L_if_else_222:
-L_if_end_222:
+L_if_else_225:
+L_if_end_225:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 47
@@ -9584,7 +9720,7 @@ L_if_end_222:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_223
+    jz L_if_else_226
 section .rodata
 str_105: db 32, 32, 32, 32, 112, 111, 112, 32, 114, 98, 120, 0
 section .text
@@ -9627,16 +9763,16 @@ section .text
     call ln
     leave
     ret
-L_if_else_223:
-L_if_end_223:
+L_if_else_226:
+L_if_end_226:
     mov rax, 0
     leave
     ret
-FRAME_109 equ 16
+FRAME_110 equ 16
 gen_string:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_110
+    sub rsp, strict dword FRAME_111
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, QWORD [cg_str]
@@ -9685,7 +9821,7 @@ section .text
     mov QWORD [rbp - 32], rax
     mov rax, 0
     mov QWORD [rbp - 40], rax
-L_rep_start_224:
+L_rep_start_227:
     mov rax, QWORD [rbp - 40]
     push rax
     mov rax, QWORD [rbp - 32]
@@ -9694,7 +9830,7 @@ L_rep_start_224:
     setl al
     movzx rax, al
     test rax, rax
-    jz L_rep_end_224
+    jz L_rep_end_227
     mov rax, QWORD [rbp - 24]
     push rax
     mov rax, QWORD [rbp - 40]
@@ -9710,7 +9846,7 @@ L_rep_start_224:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_225
+    jz L_if_else_228
     mov rax, QWORD [rbp - 40]
     push rax
     mov rax, 1
@@ -9734,11 +9870,11 @@ L_rep_start_224:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_226
+    jz L_if_else_229
     mov rax, 10
     mov QWORD [rbp - 48], rax
-L_if_else_226:
-L_if_end_226:
+L_if_else_229:
+L_if_end_229:
     mov rax, QWORD [rbp - 56]
     push rax
     mov rax, 116
@@ -9747,11 +9883,11 @@ L_if_end_226:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_227
+    jz L_if_else_230
     mov rax, 9
     mov QWORD [rbp - 48], rax
-L_if_else_227:
-L_if_end_227:
+L_if_else_230:
+L_if_end_230:
     mov rax, QWORD [rbp - 56]
     push rax
     mov rax, 114
@@ -9760,11 +9896,11 @@ L_if_end_227:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_228
+    jz L_if_else_231
     mov rax, 13
     mov QWORD [rbp - 48], rax
-L_if_else_228:
-L_if_end_228:
+L_if_else_231:
+L_if_end_231:
     mov rax, QWORD [rbp - 56]
     push rax
     mov rax, 48
@@ -9773,13 +9909,13 @@ L_if_end_228:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_229
+    jz L_if_else_232
     mov rax, 0
     mov QWORD [rbp - 48], rax
-L_if_else_229:
-L_if_end_229:
-L_if_else_225:
-L_if_end_225:
+L_if_else_232:
+L_if_end_232:
+L_if_else_228:
+L_if_end_228:
     mov rax, QWORD [rbp - 48]
     push rax
     pop rax
@@ -9799,8 +9935,8 @@ section .text
     pop rbx
     add rax, rbx
     mov QWORD [rbp - 40], rax
-    jmp L_rep_start_224
-L_rep_end_224:
+    jmp L_rep_start_227
+L_rep_end_227:
 section .rodata
 str_114: db 48, 0
 section .text
@@ -9839,11 +9975,11 @@ section .text
     call ln
     leave
     ret
-FRAME_110 equ 64
+FRAME_111 equ 64
 gen_print:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_111
+    sub rsp, strict dword FRAME_112
     mov rax, QWORD [cg_label]
     mov QWORD [rbp - 8], rax
     mov rax, QWORD [cg_label]
@@ -10122,11 +10258,11 @@ section .text
     call ln
     leave
     ret
-FRAME_111 equ 16
+FRAME_112 equ 16
 gen_call:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_112
+    sub rsp, strict dword FRAME_113
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, QWORD [rbp - 8]
@@ -10160,7 +10296,7 @@ section .text
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_230
+    jz L_if_else_233
     mov rax, QWORD [rbp - 8]
     mov r11, rax
     mov rax, QWORD [ast_a + r11 * 8]
@@ -10177,7 +10313,7 @@ section .text
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_231
+    jz L_if_else_234
 section .rodata
 str_149: db 32, 32, 32, 32, 109, 111, 118, 32, 114, 97, 120, 44, 32, 48, 0
 section .text
@@ -10186,8 +10322,8 @@ section .text
     pop rax
     mov rdi, rax
     call ln
-L_if_else_231:
-L_if_end_231:
+L_if_else_234:
+L_if_end_234:
     mov rax, QWORD [rbp - 16]
     push rax
     mov rax, 0
@@ -10196,19 +10332,19 @@ L_if_end_231:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_if_else_232
+    jz L_if_else_235
     mov rax, QWORD [rbp - 16]
     push rax
     pop rax
     mov rdi, rax
     call gen_expr
-L_if_else_232:
-L_if_end_232:
+L_if_else_235:
+L_if_end_235:
     call gen_print
     leave
     ret
-L_if_else_230:
-L_if_end_230:
+L_if_else_233:
+L_if_end_233:
     mov rax, QWORD [rbp - 8]
     mov r11, rax
     mov rax, QWORD [ast_a + r11 * 8]
@@ -10219,7 +10355,7 @@ L_if_end_230:
     mov QWORD [rbp - 24], rax
     mov rax, 0
     mov QWORD [rbp - 32], rax
-L_rep_start_233:
+L_rep_start_236:
     mov rax, QWORD [rbp - 24]
     push rax
     mov rax, 0
@@ -10228,7 +10364,7 @@ L_rep_start_233:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_rep_end_233
+    jz L_rep_end_236
     mov rax, QWORD [rbp - 24]
     push rax
     pop rax
@@ -10252,8 +10388,8 @@ section .text
     mov r11, rax
     mov rax, QWORD [ast_next + r11 * 8]
     mov QWORD [rbp - 24], rax
-    jmp L_rep_start_233
-L_rep_end_233:
+    jmp L_rep_start_236
+L_rep_end_236:
     mov rax, QWORD [rbp - 32]
     push rax
     pop rax
@@ -10283,11 +10419,11 @@ section .text
     call emit_nl
     leave
     ret
-FRAME_112 equ 32
+FRAME_113 equ 32
 gen_nib_load:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_113
+    sub rsp, strict dword FRAME_114
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, rsi
@@ -10392,7 +10528,7 @@ section .text
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_234
+    jz L_if_else_237
 section .rodata
 str_160: db 32, 32, 32, 32, 115, 104, 108, 32, 114, 97, 120, 44, 32, 54, 48, 0
 section .text
@@ -10411,8 +10547,8 @@ section .text
     call ln
     leave
     ret
-L_if_else_234:
-L_if_end_234:
+L_if_else_237:
+L_if_end_237:
 section .rodata
 str_162: db 32, 32, 32, 32, 97, 110, 100, 32, 114, 97, 120, 44, 32, 49, 53, 0
 section .text
@@ -10423,11 +10559,11 @@ section .text
     call ln
     leave
     ret
-FRAME_113 equ 16
+FRAME_114 equ 16
 gen_nib_store:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_114
+    sub rsp, strict dword FRAME_115
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, QWORD [rbp - 8]
@@ -10624,11 +10760,11 @@ section .text
     call ln
     leave
     ret
-FRAME_114 equ 16
+FRAME_115 equ 16
 gen_expr:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_115
+    sub rsp, strict dword FRAME_116
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, QWORD [rbp - 8]
@@ -10669,7 +10805,7 @@ gen_expr:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_if_else_235
+    jz L_if_else_238
 section .rodata
 str_182: db 32, 32, 32, 32, 109, 111, 118, 32, 114, 97, 120, 44, 32, 0
 section .text
@@ -10688,8 +10824,8 @@ section .text
     call emit_nl
     leave
     ret
-L_if_else_235:
-L_if_end_235:
+L_if_else_238:
+L_if_end_238:
     mov rax, QWORD [rbp - 16]
     push rax
     mov rax, 6
@@ -10698,7 +10834,7 @@ L_if_end_235:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_236
+    jz L_if_else_239
 section .rodata
 str_183: db 32, 32, 32, 32, 109, 111, 118, 32, 114, 97, 120, 44, 32, 48, 0
 section .text
@@ -10709,8 +10845,8 @@ section .text
     call ln
     leave
     ret
-L_if_else_236:
-L_if_end_236:
+L_if_else_239:
+L_if_end_239:
     mov rax, QWORD [rbp - 16]
     push rax
     mov rax, 3
@@ -10719,7 +10855,7 @@ L_if_end_236:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_237
+    jz L_if_else_240
     mov rax, QWORD [rbp - 8]
     push rax
     pop rax
@@ -10727,8 +10863,8 @@ L_if_end_236:
     call gen_string
     leave
     ret
-L_if_else_237:
-L_if_end_237:
+L_if_else_240:
+L_if_end_240:
     mov rax, QWORD [rbp - 16]
     push rax
     mov rax, 4
@@ -10737,7 +10873,7 @@ L_if_end_237:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_238
+    jz L_if_else_241
     mov rax, QWORD [rbp - 8]
     mov r11, rax
     mov rax, QWORD [ast_name_ptr + r11 * 8]
@@ -10789,7 +10925,7 @@ L_if_end_237:
     and al, bl
     movzx rax, al
     test rax, rax
-    jz L_if_else_239
+    jz L_if_else_242
 section .rodata
 str_184: db 32, 32, 32, 32, 109, 111, 118, 32, 114, 97, 120, 44, 32, 0
 section .text
@@ -10814,8 +10950,8 @@ section .text
     call emit_nl
     leave
     ret
-L_if_else_239:
-L_if_end_239:
+L_if_else_242:
+L_if_end_242:
     mov rax, 8
     mov QWORD [rbp - 56], rax
     mov rax, 0
@@ -10838,7 +10974,7 @@ L_if_end_239:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_240
+    jz L_if_else_243
     mov rax, QWORD [sy_type]
     push rax
     mov rax, QWORD [sy_ptr]
@@ -10859,8 +10995,8 @@ L_if_end_239:
     mov rdi, rax
     call type_signed
     mov QWORD [rbp - 64], rax
-L_if_else_240:
-L_if_end_240:
+L_if_else_243:
+L_if_end_243:
     mov rax, QWORD [sy_type]
     mov QWORD [rbp - 80], rax
     mov rax, QWORD [sy_ptr]
@@ -10899,7 +11035,7 @@ section .text
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_241
+    jz L_if_else_244
     mov rax, QWORD [rbp - 80]
     push rax
     mov rax, QWORD [rbp - 88]
@@ -10909,13 +11045,13 @@ section .text
     pop rax
     mov rdi, rax
     call norm_after_load
-L_if_else_241:
-L_if_end_241:
+L_if_else_244:
+L_if_end_244:
     mov rax, 0
     leave
     ret
-L_if_else_238:
-L_if_end_238:
+L_if_else_241:
+L_if_end_241:
     mov rax, QWORD [rbp - 16]
     push rax
     mov rax, 10
@@ -10924,7 +11060,7 @@ L_if_end_238:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_242
+    jz L_if_else_245
     mov rax, QWORD [rbp - 8]
     mov r11, rax
     mov rax, QWORD [ast_name_ptr + r11 * 8]
@@ -10951,7 +11087,7 @@ L_if_end_238:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_if_else_243
+    jz L_if_else_246
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, QWORD [rbp - 112]
@@ -10963,8 +11099,8 @@ L_if_end_238:
     call gen_nib_load
     leave
     ret
-L_if_else_243:
-L_if_end_243:
+L_if_else_246:
+L_if_end_246:
     mov rax, QWORD [rbp - 8]
     mov r11, rax
     mov rax, QWORD [ast_a + r11 * 8]
@@ -11004,7 +11140,7 @@ section .text
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_244
+    jz L_if_else_247
     mov rax, QWORD [sy_type]
     mov QWORD [rbp - 136], rax
     mov rax, QWORD [sy_type]
@@ -11027,8 +11163,8 @@ section .text
     mov rdi, rax
     call type_signed
     mov QWORD [rbp - 128], rax
-L_if_else_244:
-L_if_end_244:
+L_if_else_247:
+L_if_end_247:
     mov rax, QWORD [rbp - 120]
     push rax
     mov rax, QWORD [rbp - 128]
@@ -11076,7 +11212,7 @@ section .text
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_245
+    jz L_if_else_248
     mov rax, QWORD [rbp - 136]
     push rax
     mov rax, 0
@@ -11086,13 +11222,13 @@ section .text
     pop rax
     mov rdi, rax
     call norm_after_load
-L_if_else_245:
-L_if_end_245:
+L_if_else_248:
+L_if_end_248:
     mov rax, 0
     leave
     ret
-L_if_else_242:
-L_if_end_242:
+L_if_else_245:
+L_if_end_245:
     mov rax, QWORD [rbp - 16]
     push rax
     mov rax, 8
@@ -11101,7 +11237,7 @@ L_if_end_242:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_246
+    jz L_if_else_249
     mov rax, QWORD [rbp - 8]
     mov r11, rax
     mov rax, QWORD [ast_c + r11 * 8]
@@ -11112,7 +11248,7 @@ L_if_end_242:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_247
+    jz L_if_else_250
     mov rax, QWORD [rbp - 8]
     mov r11, rax
     mov rax, QWORD [ast_a + r11 * 8]
@@ -11130,8 +11266,8 @@ section .text
     call ln
     leave
     ret
-L_if_else_247:
-L_if_end_247:
+L_if_else_250:
+L_if_end_250:
     mov rax, QWORD [rbp - 8]
     mov r11, rax
     mov rax, QWORD [ast_a + r11 * 8]
@@ -11167,8 +11303,8 @@ section .text
     call ln
     leave
     ret
-L_if_else_246:
-L_if_end_246:
+L_if_else_249:
+L_if_end_249:
     mov rax, QWORD [rbp - 16]
     push rax
     mov rax, 7
@@ -11177,7 +11313,7 @@ L_if_end_246:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_248
+    jz L_if_else_251
     mov rax, QWORD [rbp - 8]
     mov r11, rax
     mov rax, QWORD [ast_a + r11 * 8]
@@ -11209,8 +11345,8 @@ section .text
     call gen_binop_tail
     leave
     ret
-L_if_else_248:
-L_if_end_248:
+L_if_else_251:
+L_if_end_251:
     mov rax, QWORD [rbp - 16]
     push rax
     mov rax, 9
@@ -11219,7 +11355,7 @@ L_if_end_248:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_249
+    jz L_if_else_252
     mov rax, QWORD [rbp - 8]
     push rax
     pop rax
@@ -11227,16 +11363,16 @@ L_if_end_248:
     call gen_call
     leave
     ret
-L_if_else_249:
-L_if_end_249:
+L_if_else_252:
+L_if_end_252:
     mov rax, 0
     leave
     ret
-FRAME_115 equ 160
+FRAME_116 equ 160
 gen_truncate:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_116
+    sub rsp, strict dword FRAME_117
     mov rax, QWORD [cg_ret_ptr]
     push rax
     mov rax, 1
@@ -11245,12 +11381,12 @@ gen_truncate:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_250
+    jz L_if_else_253
     mov rax, 0
     leave
     ret
-L_if_else_250:
-L_if_end_250:
+L_if_else_253:
+L_if_end_253:
     mov rax, QWORD [cg_ret_type]
     mov QWORD [rbp - 8], rax
     mov rax, QWORD [rbp - 8]
@@ -11261,7 +11397,7 @@ L_if_end_250:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_251
+    jz L_if_else_254
 section .rodata
 str_193: db 32, 32, 32, 32, 97, 110, 100, 32, 114, 97, 120, 44, 32, 49, 53, 0
 section .text
@@ -11270,8 +11406,8 @@ section .text
     pop rax
     mov rdi, rax
     call ln
-L_if_else_251:
-L_if_end_251:
+L_if_else_254:
+L_if_end_254:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 43
@@ -11280,7 +11416,7 @@ L_if_end_251:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_252
+    jz L_if_else_255
 section .rodata
 str_194: db 32, 32, 32, 32, 115, 104, 108, 32, 114, 97, 120, 44, 32, 54, 48, 0
 section .text
@@ -11297,8 +11433,8 @@ section .text
     pop rax
     mov rdi, rax
     call ln
-L_if_else_252:
-L_if_end_252:
+L_if_else_255:
+L_if_end_255:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 29
@@ -11307,7 +11443,7 @@ L_if_end_252:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_253
+    jz L_if_else_256
 section .rodata
 str_196: db 32, 32, 32, 32, 109, 111, 118, 115, 120, 32, 114, 97, 120, 44, 32, 97, 108, 0
 section .text
@@ -11316,8 +11452,8 @@ section .text
     pop rax
     mov rdi, rax
     call ln
-L_if_else_253:
-L_if_end_253:
+L_if_else_256:
+L_if_end_256:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 30
@@ -11352,7 +11488,7 @@ L_if_end_253:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_if_else_254
+    jz L_if_else_257
 section .rodata
 str_197: db 32, 32, 32, 32, 109, 111, 118, 122, 120, 32, 114, 97, 120, 44, 32, 97, 108, 0
 section .text
@@ -11361,8 +11497,8 @@ section .text
     pop rax
     mov rdi, rax
     call ln
-L_if_else_254:
-L_if_end_254:
+L_if_else_257:
+L_if_end_257:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 31
@@ -11371,7 +11507,7 @@ L_if_end_254:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_255
+    jz L_if_else_258
 section .rodata
 str_198: db 32, 32, 32, 32, 109, 111, 118, 115, 120, 32, 114, 97, 120, 44, 32, 97, 120, 0
 section .text
@@ -11380,8 +11516,8 @@ section .text
     pop rax
     mov rdi, rax
     call ln
-L_if_else_255:
-L_if_end_255:
+L_if_else_258:
+L_if_end_258:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 32
@@ -11390,7 +11526,7 @@ L_if_end_255:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_256
+    jz L_if_else_259
 section .rodata
 str_199: db 32, 32, 32, 32, 109, 111, 118, 122, 120, 32, 114, 97, 120, 44, 32, 97, 120, 0
 section .text
@@ -11399,8 +11535,8 @@ section .text
     pop rax
     mov rdi, rax
     call ln
-L_if_else_256:
-L_if_end_256:
+L_if_else_259:
+L_if_end_259:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 33
@@ -11409,7 +11545,7 @@ L_if_end_256:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_257
+    jz L_if_else_260
 section .rodata
 str_200: db 32, 32, 32, 32, 99, 100, 113, 101, 0
 section .text
@@ -11418,8 +11554,8 @@ section .text
     pop rax
     mov rdi, rax
     call ln
-L_if_else_257:
-L_if_end_257:
+L_if_else_260:
+L_if_end_260:
     mov rax, QWORD [rbp - 8]
     push rax
     mov rax, 34
@@ -11428,7 +11564,7 @@ L_if_end_257:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_258
+    jz L_if_else_261
 section .rodata
 str_201: db 32, 32, 32, 32, 109, 111, 118, 32, 101, 97, 120, 44, 32, 101, 97, 120, 0
 section .text
@@ -11437,16 +11573,16 @@ section .text
     pop rax
     mov rdi, rax
     call ln
-L_if_else_258:
-L_if_end_258:
+L_if_else_261:
+L_if_end_261:
     mov rax, 0
     leave
     ret
-FRAME_116 equ 16
+FRAME_117 equ 16
 gen_stmt:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_117
+    sub rsp, strict dword FRAME_118
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, QWORD [rbp - 8]
@@ -11461,7 +11597,7 @@ gen_stmt:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_259
+    jz L_if_else_262
     mov rax, QWORD [rbp - 8]
     mov r11, rax
     mov rax, QWORD [ast_a + r11 * 8]
@@ -11559,8 +11695,8 @@ section .text
     call emit_nl
     leave
     ret
-L_if_else_259:
-L_if_end_259:
+L_if_else_262:
+L_if_end_262:
     mov rax, QWORD [rbp - 16]
     push rax
     mov rax, 14
@@ -11569,7 +11705,7 @@ L_if_end_259:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_260
+    jz L_if_else_263
     mov rax, QWORD [rbp - 8]
     mov r11, rax
     mov rax, QWORD [ast_a + r11 * 8]
@@ -11592,7 +11728,7 @@ L_if_end_259:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_261
+    jz L_if_else_264
     mov rax, QWORD [rbp - 64]
     push rax
     mov rax, 15
@@ -11628,8 +11764,8 @@ L_if_end_259:
     pop rax
     mov rdi, rax
     call nib_add
-    jmp L_if_end_261
-L_if_else_261:
+    jmp L_if_end_264
+L_if_else_264:
     mov rax, QWORD [rbp - 64]
     push rax
     mov rax, QWORD [rbp - 56]
@@ -11654,7 +11790,7 @@ L_if_else_261:
     xor rdx, rdx
     div rbx
     mov QWORD [rbp - 72], rax
-L_if_end_261:
+L_if_end_264:
     mov rax, QWORD [rbp - 8]
     mov r11, rax
     mov rax, QWORD [ast_name_ptr + r11 * 8]
@@ -11687,8 +11823,59 @@ L_if_end_261:
     mov rax, 0
     leave
     ret
-L_if_else_260:
-L_if_end_260:
+L_if_else_263:
+L_if_end_263:
+    mov rax, QWORD [rbp - 16]
+    push rax
+    mov rax, 25
+    pop rbx
+    cmp rbx, rax
+    sete al
+    movzx rax, al
+    test rax, rax
+    jz L_if_else_265
+    mov rax, QWORD [rbp - 8]
+    mov r11, rax
+    mov rax, QWORD [ast_a + r11 * 8]
+    push rax
+    pop rax
+    mov rdi, rax
+    call gen_expr
+section .rodata
+str_205: db 32, 32, 32, 32, 112, 117, 115, 104, 32, 114, 97, 120, 0
+section .text
+    lea rax, [rel str_205]
+    push rax
+    pop rax
+    mov rdi, rax
+    call ln
+    mov rax, QWORD [rbp - 8]
+    mov r11, rax
+    mov rax, QWORD [ast_b + r11 * 8]
+    push rax
+    pop rax
+    mov rdi, rax
+    call gen_expr
+section .rodata
+str_206: db 32, 32, 32, 32, 112, 111, 112, 32, 114, 98, 120, 0
+section .text
+    lea rax, [rel str_206]
+    push rax
+    pop rax
+    mov rdi, rax
+    call ln
+section .rodata
+str_207: db 32, 32, 32, 32, 109, 111, 118, 32, 98, 121, 116, 101, 32, 91, 114, 98, 120, 93, 44, 32, 97, 108, 0
+section .text
+    lea rax, [rel str_207]
+    push rax
+    pop rax
+    mov rdi, rax
+    call ln
+    leave
+    ret
+L_if_else_265:
+L_if_end_265:
     mov rax, QWORD [rbp - 16]
     push rax
     mov rax, 11
@@ -11697,7 +11884,7 @@ L_if_end_260:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_262
+    jz L_if_else_266
     mov rax, QWORD [rbp - 8]
     mov r11, rax
     mov rax, QWORD [ast_a + r11 * 8]
@@ -11731,7 +11918,7 @@ L_if_end_260:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_263
+    jz L_if_else_267
     mov rax, QWORD [sy_type]
     push rax
     mov rax, QWORD [sy_ptr]
@@ -11742,12 +11929,12 @@ L_if_end_260:
     mov rdi, rax
     call type_size
     mov QWORD [rbp - 96], rax
-L_if_else_263:
-L_if_end_263:
+L_if_else_267:
+L_if_end_267:
 section .rodata
-str_205: db 32, 32, 32, 32, 109, 111, 118, 32, 0
+str_208: db 32, 32, 32, 32, 109, 111, 118, 32, 0
 section .text
-    lea rax, [rel str_205]
+    lea rax, [rel str_208]
     push rax
     pop rax
     mov rdi, rax
@@ -11758,9 +11945,9 @@ section .text
     mov rdi, rax
     call size_kw
 section .rodata
-str_206: db 32, 91, 0
+str_209: db 32, 91, 0
 section .text
-    lea rax, [rel str_206]
+    lea rax, [rel str_209]
     push rax
     pop rax
     mov rdi, rax
@@ -11775,9 +11962,9 @@ section .text
     mov rdi, rax
     call emit_var
 section .rodata
-str_207: db 93, 44, 32, 0
+str_210: db 93, 44, 32, 0
 section .text
-    lea rax, [rel str_207]
+    lea rax, [rel str_210]
     push rax
     pop rax
     mov rdi, rax
@@ -11790,8 +11977,8 @@ section .text
     call emit_nl
     leave
     ret
-L_if_else_262:
-L_if_end_262:
+L_if_else_266:
+L_if_end_266:
     mov rax, QWORD [rbp - 16]
     push rax
     mov rax, 12
@@ -11800,7 +11987,7 @@ L_if_end_262:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_264
+    jz L_if_else_268
     mov rax, QWORD [rbp - 8]
     mov r11, rax
     mov rax, QWORD [ast_name_ptr + r11 * 8]
@@ -11825,7 +12012,7 @@ L_if_end_262:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_if_else_265
+    jz L_if_else_269
     mov rax, QWORD [rbp - 8]
     push rax
     pop rax
@@ -11833,8 +12020,8 @@ L_if_end_262:
     call gen_nib_store
     leave
     ret
-L_if_else_265:
-L_if_end_265:
+L_if_else_269:
+L_if_end_269:
     mov rax, QWORD [rbp - 8]
     mov r11, rax
     mov rax, QWORD [ast_a + r11 * 8]
@@ -11843,9 +12030,9 @@ L_if_end_265:
     mov rdi, rax
     call gen_expr
 section .rodata
-str_208: db 32, 32, 32, 32, 112, 117, 115, 104, 32, 114, 97, 120, 0
+str_211: db 32, 32, 32, 32, 112, 117, 115, 104, 32, 114, 97, 120, 0
 section .text
-    lea rax, [rel str_208]
+    lea rax, [rel str_211]
     push rax
     pop rax
     mov rdi, rax
@@ -11858,17 +12045,17 @@ section .text
     mov rdi, rax
     call gen_expr
 section .rodata
-str_209: db 32, 32, 32, 32, 109, 111, 118, 32, 114, 49, 50, 44, 32, 114, 97, 120, 0
+str_212: db 32, 32, 32, 32, 109, 111, 118, 32, 114, 49, 50, 44, 32, 114, 97, 120, 0
 section .text
-    lea rax, [rel str_209]
+    lea rax, [rel str_212]
     push rax
     pop rax
     mov rdi, rax
     call ln
 section .rodata
-str_210: db 32, 32, 32, 32, 112, 111, 112, 32, 114, 49, 49, 0
+str_213: db 32, 32, 32, 32, 112, 111, 112, 32, 114, 49, 49, 0
 section .text
-    lea rax, [rel str_210]
+    lea rax, [rel str_213]
     push rax
     pop rax
     mov rdi, rax
@@ -11891,7 +12078,7 @@ section .text
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_266
+    jz L_if_else_270
     mov rax, QWORD [sy_type]
     push rax
     mov rax, 0
@@ -11902,12 +12089,12 @@ section .text
     mov rdi, rax
     call type_size
     mov QWORD [rbp - 120], rax
-L_if_else_266:
-L_if_end_266:
+L_if_else_270:
+L_if_end_270:
 section .rodata
-str_211: db 32, 32, 32, 32, 109, 111, 118, 32, 0
+str_214: db 32, 32, 32, 32, 109, 111, 118, 32, 0
 section .text
-    lea rax, [rel str_211]
+    lea rax, [rel str_214]
     push rax
     pop rax
     mov rdi, rax
@@ -11918,9 +12105,9 @@ section .text
     mov rdi, rax
     call size_kw
 section .rodata
-str_212: db 32, 91, 0
+str_215: db 32, 91, 0
 section .text
-    lea rax, [rel str_212]
+    lea rax, [rel str_215]
     push rax
     pop rax
     mov rdi, rax
@@ -11935,9 +12122,9 @@ section .text
     mov rdi, rax
     call emit_var
 section .rodata
-str_213: db 32, 43, 32, 114, 49, 49, 32, 42, 32, 0
+str_216: db 32, 43, 32, 114, 49, 49, 32, 42, 32, 0
 section .text
-    lea rax, [rel str_213]
+    lea rax, [rel str_216]
     push rax
     pop rax
     mov rdi, rax
@@ -11948,9 +12135,9 @@ section .text
     mov rdi, rax
     call print_uint
 section .rodata
-str_214: db 93, 44, 32, 0
+str_217: db 93, 44, 32, 0
 section .text
-    lea rax, [rel str_214]
+    lea rax, [rel str_217]
     push rax
     pop rax
     mov rdi, rax
@@ -11963,8 +12150,8 @@ section .text
     call emit_nl
     leave
     ret
-L_if_else_264:
-L_if_end_264:
+L_if_else_268:
+L_if_end_268:
     mov rax, QWORD [rbp - 16]
     push rax
     mov rax, 15
@@ -11973,7 +12160,7 @@ L_if_end_264:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_267
+    jz L_if_else_271
     mov rax, QWORD [rbp - 8]
     mov r11, rax
     mov rax, QWORD [ast_a + r11 * 8]
@@ -11990,17 +12177,17 @@ L_if_end_264:
     add rax, rbx
     mov QWORD [cg_label], rax
 section .rodata
-str_215: db 32, 32, 32, 32, 116, 101, 115, 116, 32, 114, 97, 120, 44, 32, 114, 97, 120, 0
+str_218: db 32, 32, 32, 32, 116, 101, 115, 116, 32, 114, 97, 120, 44, 32, 114, 97, 120, 0
 section .text
-    lea rax, [rel str_215]
+    lea rax, [rel str_218]
     push rax
     pop rax
     mov rdi, rax
     call ln
 section .rodata
-str_216: db 32, 32, 32, 32, 106, 122, 32, 76, 95, 105, 102, 95, 101, 108, 115, 101, 95, 0
+str_219: db 32, 32, 32, 32, 106, 122, 32, 76, 95, 105, 102, 95, 101, 108, 115, 101, 95, 0
 section .text
-    lea rax, [rel str_216]
+    lea rax, [rel str_219]
     push rax
     mov rax, QWORD [rbp - 128]
     push rax
@@ -12032,11 +12219,11 @@ section .text
     setne al
     movzx rax, al
     test rax, rax
-    jz L_if_else_268
+    jz L_if_else_272
 section .rodata
-str_217: db 32, 32, 32, 32, 106, 109, 112, 32, 76, 95, 105, 102, 95, 101, 110, 100, 95, 0
+str_220: db 32, 32, 32, 32, 106, 109, 112, 32, 76, 95, 105, 102, 95, 101, 110, 100, 95, 0
 section .text
-    lea rax, [rel str_217]
+    lea rax, [rel str_220]
     push rax
     mov rax, QWORD [rbp - 128]
     push rax
@@ -12046,9 +12233,9 @@ section .text
     mov rdi, rax
     call labln
 section .rodata
-str_218: db 76, 95, 105, 102, 95, 101, 108, 115, 101, 95, 0
+str_221: db 76, 95, 105, 102, 95, 101, 108, 115, 101, 95, 0
 section .text
-    lea rax, [rel str_218]
+    lea rax, [rel str_221]
     push rax
     mov rax, QWORD [rbp - 128]
     push rax
@@ -12064,12 +12251,12 @@ section .text
     pop rax
     mov rdi, rax
     call gen_block
-    jmp L_if_end_268
-L_if_else_268:
+    jmp L_if_end_272
+L_if_else_272:
 section .rodata
-str_219: db 76, 95, 105, 102, 95, 101, 108, 115, 101, 95, 0
+str_222: db 76, 95, 105, 102, 95, 101, 108, 115, 101, 95, 0
 section .text
-    lea rax, [rel str_219]
+    lea rax, [rel str_222]
     push rax
     mov rax, QWORD [rbp - 128]
     push rax
@@ -12078,7 +12265,7 @@ section .text
     pop rax
     mov rdi, rax
     call labdef
-L_if_end_268:
+L_if_end_272:
     mov rax, QWORD [cg_nest]
     push rax
     mov rax, 1
@@ -12088,9 +12275,9 @@ L_if_end_268:
     sub rax, rcx
     mov QWORD [cg_nest], rax
 section .rodata
-str_220: db 76, 95, 105, 102, 95, 101, 110, 100, 95, 0
+str_223: db 76, 95, 105, 102, 95, 101, 110, 100, 95, 0
 section .text
-    lea rax, [rel str_220]
+    lea rax, [rel str_223]
     push rax
     mov rax, QWORD [rbp - 128]
     push rax
@@ -12101,8 +12288,8 @@ section .text
     call labdef
     leave
     ret
-L_if_else_267:
-L_if_end_267:
+L_if_else_271:
+L_if_end_271:
     mov rax, QWORD [rbp - 16]
     push rax
     mov rax, 16
@@ -12111,7 +12298,7 @@ L_if_end_267:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_269
+    jz L_if_else_273
     mov rax, QWORD [cg_label]
     mov QWORD [rbp - 136], rax
     mov rax, QWORD [cg_label]
@@ -12121,9 +12308,9 @@ L_if_end_267:
     add rax, rbx
     mov QWORD [cg_label], rax
 section .rodata
-str_221: db 32, 32, 32, 32, 109, 111, 118, 32, 114, 97, 120, 44, 32, 0
+str_224: db 32, 32, 32, 32, 109, 111, 118, 32, 114, 97, 120, 44, 32, 0
 section .text
-    lea rax, [rel str_221]
+    lea rax, [rel str_224]
     push rax
     pop rax
     mov rdi, rax
@@ -12137,17 +12324,17 @@ section .text
     call print_uint
     call emit_nl
 section .rodata
-str_222: db 32, 32, 32, 32, 112, 117, 115, 104, 32, 114, 97, 120, 0
+str_225: db 32, 32, 32, 32, 112, 117, 115, 104, 32, 114, 97, 120, 0
 section .text
-    lea rax, [rel str_222]
+    lea rax, [rel str_225]
     push rax
     pop rax
     mov rdi, rax
     call ln
 section .rodata
-str_223: db 76, 95, 114, 101, 112, 95, 115, 116, 97, 114, 116, 95, 0
+str_226: db 76, 95, 114, 101, 112, 95, 115, 116, 97, 114, 116, 95, 0
 section .text
-    lea rax, [rel str_223]
+    lea rax, [rel str_226]
     push rax
     mov rax, QWORD [rbp - 136]
     push rax
@@ -12157,68 +12344,15 @@ section .text
     mov rdi, rax
     call labdef
 section .rodata
-str_224: db 32, 32, 32, 32, 99, 109, 112, 32, 113, 119, 111, 114, 100, 32, 91, 114, 115, 112, 93, 44, 32, 48, 0
-section .text
-    lea rax, [rel str_224]
-    push rax
-    pop rax
-    mov rdi, rax
-    call ln
-section .rodata
-str_225: db 32, 32, 32, 32, 106, 108, 101, 32, 76, 95, 114, 101, 112, 95, 101, 110, 100, 95, 0
-section .text
-    lea rax, [rel str_225]
-    push rax
-    mov rax, QWORD [rbp - 136]
-    push rax
-    pop rax
-    mov rsi, rax
-    pop rax
-    mov rdi, rax
-    call labln
-    mov rax, QWORD [cg_nest]
-    push rax
-    mov rax, 1
-    pop rbx
-    add rax, rbx
-    mov QWORD [cg_nest], rax
-    mov rax, QWORD [rbp - 8]
-    mov r11, rax
-    mov rax, QWORD [ast_b + r11 * 8]
-    push rax
-    pop rax
-    mov rdi, rax
-    call gen_block
-    mov rax, QWORD [cg_nest]
-    push rax
-    mov rax, 1
-    pop rbx
-    mov rcx, rax
-    mov rax, rbx
-    sub rax, rcx
-    mov QWORD [cg_nest], rax
-section .rodata
-str_226: db 32, 32, 32, 32, 100, 101, 99, 32, 113, 119, 111, 114, 100, 32, 91, 114, 115, 112, 93, 0
-section .text
-    lea rax, [rel str_226]
-    push rax
-    pop rax
-    mov rdi, rax
-    call ln
-section .rodata
-str_227: db 32, 32, 32, 32, 106, 109, 112, 32, 76, 95, 114, 101, 112, 95, 115, 116, 97, 114, 116, 95, 0
+str_227: db 32, 32, 32, 32, 99, 109, 112, 32, 113, 119, 111, 114, 100, 32, 91, 114, 115, 112, 93, 44, 32, 48, 0
 section .text
     lea rax, [rel str_227]
     push rax
-    mov rax, QWORD [rbp - 136]
-    push rax
-    pop rax
-    mov rsi, rax
     pop rax
     mov rdi, rax
-    call labln
+    call ln
 section .rodata
-str_228: db 76, 95, 114, 101, 112, 95, 101, 110, 100, 95, 0
+str_228: db 32, 32, 32, 32, 106, 108, 101, 32, 76, 95, 114, 101, 112, 95, 101, 110, 100, 95, 0
 section .text
     lea rax, [rel str_228]
     push rax
@@ -12228,19 +12362,72 @@ section .text
     mov rsi, rax
     pop rax
     mov rdi, rax
-    call labdef
+    call labln
+    mov rax, QWORD [cg_nest]
+    push rax
+    mov rax, 1
+    pop rbx
+    add rax, rbx
+    mov QWORD [cg_nest], rax
+    mov rax, QWORD [rbp - 8]
+    mov r11, rax
+    mov rax, QWORD [ast_b + r11 * 8]
+    push rax
+    pop rax
+    mov rdi, rax
+    call gen_block
+    mov rax, QWORD [cg_nest]
+    push rax
+    mov rax, 1
+    pop rbx
+    mov rcx, rax
+    mov rax, rbx
+    sub rax, rcx
+    mov QWORD [cg_nest], rax
 section .rodata
-str_229: db 32, 32, 32, 32, 97, 100, 100, 32, 114, 115, 112, 44, 32, 56, 0
+str_229: db 32, 32, 32, 32, 100, 101, 99, 32, 113, 119, 111, 114, 100, 32, 91, 114, 115, 112, 93, 0
 section .text
     lea rax, [rel str_229]
     push rax
     pop rax
     mov rdi, rax
     call ln
+section .rodata
+str_230: db 32, 32, 32, 32, 106, 109, 112, 32, 76, 95, 114, 101, 112, 95, 115, 116, 97, 114, 116, 95, 0
+section .text
+    lea rax, [rel str_230]
+    push rax
+    mov rax, QWORD [rbp - 136]
+    push rax
+    pop rax
+    mov rsi, rax
+    pop rax
+    mov rdi, rax
+    call labln
+section .rodata
+str_231: db 76, 95, 114, 101, 112, 95, 101, 110, 100, 95, 0
+section .text
+    lea rax, [rel str_231]
+    push rax
+    mov rax, QWORD [rbp - 136]
+    push rax
+    pop rax
+    mov rsi, rax
+    pop rax
+    mov rdi, rax
+    call labdef
+section .rodata
+str_232: db 32, 32, 32, 32, 97, 100, 100, 32, 114, 115, 112, 44, 32, 56, 0
+section .text
+    lea rax, [rel str_232]
+    push rax
+    pop rax
+    mov rdi, rax
+    call ln
     leave
     ret
-L_if_else_269:
-L_if_end_269:
+L_if_else_273:
+L_if_end_273:
     mov rax, QWORD [rbp - 16]
     push rax
     mov rax, 17
@@ -12249,7 +12436,7 @@ L_if_end_269:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_270
+    jz L_if_else_274
     mov rax, QWORD [cg_label]
     mov QWORD [rbp - 144], rax
     mov rax, QWORD [cg_label]
@@ -12259,9 +12446,9 @@ L_if_end_269:
     add rax, rbx
     mov QWORD [cg_label], rax
 section .rodata
-str_230: db 76, 95, 114, 101, 112, 95, 115, 116, 97, 114, 116, 95, 0
+str_233: db 76, 95, 114, 101, 112, 95, 115, 116, 97, 114, 116, 95, 0
 section .text
-    lea rax, [rel str_230]
+    lea rax, [rel str_233]
     push rax
     mov rax, QWORD [rbp - 144]
     push rax
@@ -12278,17 +12465,17 @@ section .text
     mov rdi, rax
     call gen_expr
 section .rodata
-str_231: db 32, 32, 32, 32, 116, 101, 115, 116, 32, 114, 97, 120, 44, 32, 114, 97, 120, 0
+str_234: db 32, 32, 32, 32, 116, 101, 115, 116, 32, 114, 97, 120, 44, 32, 114, 97, 120, 0
 section .text
-    lea rax, [rel str_231]
+    lea rax, [rel str_234]
     push rax
     pop rax
     mov rdi, rax
     call ln
 section .rodata
-str_232: db 32, 32, 32, 32, 106, 122, 32, 76, 95, 114, 101, 112, 95, 101, 110, 100, 95, 0
+str_235: db 32, 32, 32, 32, 106, 122, 32, 76, 95, 114, 101, 112, 95, 101, 110, 100, 95, 0
 section .text
-    lea rax, [rel str_232]
+    lea rax, [rel str_235]
     push rax
     mov rax, QWORD [rbp - 144]
     push rax
@@ -12319,9 +12506,9 @@ section .text
     sub rax, rcx
     mov QWORD [cg_nest], rax
 section .rodata
-str_233: db 32, 32, 32, 32, 106, 109, 112, 32, 76, 95, 114, 101, 112, 95, 115, 116, 97, 114, 116, 95, 0
+str_236: db 32, 32, 32, 32, 106, 109, 112, 32, 76, 95, 114, 101, 112, 95, 115, 116, 97, 114, 116, 95, 0
 section .text
-    lea rax, [rel str_233]
+    lea rax, [rel str_236]
     push rax
     mov rax, QWORD [rbp - 144]
     push rax
@@ -12331,9 +12518,9 @@ section .text
     mov rdi, rax
     call labln
 section .rodata
-str_234: db 76, 95, 114, 101, 112, 95, 101, 110, 100, 95, 0
+str_237: db 76, 95, 114, 101, 112, 95, 101, 110, 100, 95, 0
 section .text
-    lea rax, [rel str_234]
+    lea rax, [rel str_237]
     push rax
     mov rax, QWORD [rbp - 144]
     push rax
@@ -12344,8 +12531,8 @@ section .text
     call labdef
     leave
     ret
-L_if_else_270:
-L_if_end_270:
+L_if_else_274:
+L_if_end_274:
     mov rax, QWORD [rbp - 16]
     push rax
     mov rax, 18
@@ -12354,7 +12541,7 @@ L_if_end_270:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_271
+    jz L_if_else_275
     mov rax, QWORD [rbp - 8]
     mov r11, rax
     mov rax, QWORD [ast_a + r11 * 8]
@@ -12365,17 +12552,17 @@ L_if_end_270:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_272
+    jz L_if_else_276
 section .rodata
-str_235: db 32, 32, 32, 32, 109, 111, 118, 32, 114, 97, 120, 44, 32, 48, 0
+str_238: db 32, 32, 32, 32, 109, 111, 118, 32, 114, 97, 120, 44, 32, 48, 0
 section .text
-    lea rax, [rel str_235]
+    lea rax, [rel str_238]
     push rax
     pop rax
     mov rdi, rax
     call ln
-    jmp L_if_end_272
-L_if_else_272:
+    jmp L_if_end_276
+L_if_else_276:
     mov rax, QWORD [rbp - 8]
     mov r11, rax
     mov rax, QWORD [ast_a + r11 * 8]
@@ -12383,20 +12570,20 @@ L_if_else_272:
     pop rax
     mov rdi, rax
     call gen_expr
-L_if_end_272:
+L_if_end_276:
     call gen_truncate
 section .rodata
-str_236: db 32, 32, 32, 32, 108, 101, 97, 118, 101, 0
+str_239: db 32, 32, 32, 32, 108, 101, 97, 118, 101, 0
 section .text
-    lea rax, [rel str_236]
+    lea rax, [rel str_239]
     push rax
     pop rax
     mov rdi, rax
     call ln
 section .rodata
-str_237: db 32, 32, 32, 32, 114, 101, 116, 0
+str_240: db 32, 32, 32, 32, 114, 101, 116, 0
 section .text
-    lea rax, [rel str_237]
+    lea rax, [rel str_240]
     push rax
     pop rax
     mov rdi, rax
@@ -12409,16 +12596,16 @@ section .text
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_273
+    jz L_if_else_277
     mov rax, 1
     mov QWORD [cg_has_ret], rax
-L_if_else_273:
-L_if_end_273:
+L_if_else_277:
+L_if_end_277:
     mov rax, 0
     leave
     ret
-L_if_else_271:
-L_if_end_271:
+L_if_else_275:
+L_if_end_275:
     mov rax, QWORD [rbp - 8]
     push rax
     pop rax
@@ -12426,11 +12613,11 @@ L_if_end_271:
     call gen_expr
     leave
     ret
-FRAME_117 equ 144
+FRAME_118 equ 144
 gen_block:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_118
+    sub rsp, strict dword FRAME_119
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, QWORD [rbp - 8]
@@ -12439,7 +12626,7 @@ gen_block:
     mov rdi, rax
     call ast_list_first
     mov QWORD [rbp - 16], rax
-L_rep_start_274:
+L_rep_start_278:
     mov rax, QWORD [rbp - 16]
     push rax
     mov rax, 0
@@ -12448,7 +12635,7 @@ L_rep_start_274:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_rep_end_274
+    jz L_rep_end_278
     mov rax, QWORD [rbp - 16]
     push rax
     pop rax
@@ -12458,16 +12645,16 @@ L_rep_start_274:
     mov r11, rax
     mov rax, QWORD [ast_next + r11 * 8]
     mov QWORD [rbp - 16], rax
-    jmp L_rep_start_274
-L_rep_end_274:
+    jmp L_rep_start_278
+L_rep_end_278:
     mov rax, 0
     leave
     ret
-FRAME_118 equ 16
+FRAME_119 equ 16
 gen_func:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_119
+    sub rsp, strict dword FRAME_120
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, QWORD [cg_fn]
@@ -12508,33 +12695,33 @@ gen_func:
     mov rdi, rax
     call write_bytes
 section .rodata
-str_238: db 58, 0
-section .text
-    lea rax, [rel str_238]
-    push rax
-    pop rax
-    mov rdi, rax
-    call ln
-section .rodata
-str_239: db 32, 32, 32, 32, 112, 117, 115, 104, 32, 114, 98, 112, 0
-section .text
-    lea rax, [rel str_239]
-    push rax
-    pop rax
-    mov rdi, rax
-    call ln
-section .rodata
-str_240: db 32, 32, 32, 32, 109, 111, 118, 32, 114, 98, 112, 44, 32, 114, 115, 112, 0
-section .text
-    lea rax, [rel str_240]
-    push rax
-    pop rax
-    mov rdi, rax
-    call ln
-section .rodata
-str_241: db 32, 32, 32, 32, 115, 117, 98, 32, 114, 115, 112, 44, 32, 115, 116, 114, 105, 99, 116, 32, 100, 119, 111, 114, 100, 32, 70, 82, 65, 77, 69, 95, 0
+str_241: db 58, 0
 section .text
     lea rax, [rel str_241]
+    push rax
+    pop rax
+    mov rdi, rax
+    call ln
+section .rodata
+str_242: db 32, 32, 32, 32, 112, 117, 115, 104, 32, 114, 98, 112, 0
+section .text
+    lea rax, [rel str_242]
+    push rax
+    pop rax
+    mov rdi, rax
+    call ln
+section .rodata
+str_243: db 32, 32, 32, 32, 109, 111, 118, 32, 114, 98, 112, 44, 32, 114, 115, 112, 0
+section .text
+    lea rax, [rel str_243]
+    push rax
+    pop rax
+    mov rdi, rax
+    call ln
+section .rodata
+str_244: db 32, 32, 32, 32, 115, 117, 98, 32, 114, 115, 112, 44, 32, 115, 116, 114, 105, 99, 116, 32, 100, 119, 111, 114, 100, 32, 70, 82, 65, 77, 69, 95, 0
+section .text
+    lea rax, [rel str_244]
     push rax
     mov rax, QWORD [cg_fn]
     push rax
@@ -12553,7 +12740,7 @@ section .text
     mov QWORD [rbp - 16], rax
     mov rax, 0
     mov QWORD [rbp - 24], rax
-L_rep_start_275:
+L_rep_start_279:
     mov rax, QWORD [rbp - 16]
     push rax
     mov rax, 0
@@ -12562,7 +12749,7 @@ L_rep_start_275:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_rep_end_275
+    jz L_rep_end_279
     mov rax, QWORD [rbp - 16]
     mov r11, rax
     mov rax, QWORD [ast_name_ptr + r11 * 8]
@@ -12598,9 +12785,9 @@ L_rep_start_275:
     call loc_add
     mov QWORD [rbp - 32], rax
 section .rodata
-str_242: db 32, 32, 32, 32, 109, 111, 118, 32, 114, 97, 120, 44, 32, 0
+str_245: db 32, 32, 32, 32, 109, 111, 118, 32, 114, 97, 120, 44, 32, 0
 section .text
-    lea rax, [rel str_242]
+    lea rax, [rel str_245]
     push rax
     pop rax
     mov rdi, rax
@@ -12612,9 +12799,9 @@ section .text
     call argreg
     call emit_nl
 section .rodata
-str_243: db 32, 32, 32, 32, 109, 111, 118, 32, 81, 87, 79, 82, 68, 32, 91, 114, 98, 112, 32, 45, 32, 0
+str_246: db 32, 32, 32, 32, 109, 111, 118, 32, 81, 87, 79, 82, 68, 32, 91, 114, 98, 112, 32, 45, 32, 0
 section .text
-    lea rax, [rel str_243]
+    lea rax, [rel str_246]
     push rax
     pop rax
     mov rdi, rax
@@ -12625,9 +12812,9 @@ section .text
     mov rdi, rax
     call print_uint
 section .rodata
-str_244: db 93, 44, 32, 114, 97, 120, 0
+str_247: db 93, 44, 32, 114, 97, 120, 0
 section .text
-    lea rax, [rel str_244]
+    lea rax, [rel str_247]
     push rax
     pop rax
     mov rdi, rax
@@ -12642,8 +12829,8 @@ section .text
     mov r11, rax
     mov rax, QWORD [ast_next + r11 * 8]
     mov QWORD [rbp - 16], rax
-    jmp L_rep_start_275
-L_rep_end_275:
+    jmp L_rep_start_279
+L_rep_end_279:
     mov rax, QWORD [rbp - 8]
     mov r11, rax
     mov rax, QWORD [ast_b + r11 * 8]
@@ -12659,37 +12846,37 @@ L_rep_end_275:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_276
+    jz L_if_else_280
 section .rodata
-str_245: db 32, 32, 32, 32, 109, 111, 118, 32, 114, 97, 120, 44, 32, 48, 0
-section .text
-    lea rax, [rel str_245]
-    push rax
-    pop rax
-    mov rdi, rax
-    call ln
-section .rodata
-str_246: db 32, 32, 32, 32, 108, 101, 97, 118, 101, 0
-section .text
-    lea rax, [rel str_246]
-    push rax
-    pop rax
-    mov rdi, rax
-    call ln
-section .rodata
-str_247: db 32, 32, 32, 32, 114, 101, 116, 0
-section .text
-    lea rax, [rel str_247]
-    push rax
-    pop rax
-    mov rdi, rax
-    call ln
-L_if_else_276:
-L_if_end_276:
-section .rodata
-str_248: db 70, 82, 65, 77, 69, 95, 0
+str_248: db 32, 32, 32, 32, 109, 111, 118, 32, 114, 97, 120, 44, 32, 48, 0
 section .text
     lea rax, [rel str_248]
+    push rax
+    pop rax
+    mov rdi, rax
+    call ln
+section .rodata
+str_249: db 32, 32, 32, 32, 108, 101, 97, 118, 101, 0
+section .text
+    lea rax, [rel str_249]
+    push rax
+    pop rax
+    mov rdi, rax
+    call ln
+section .rodata
+str_250: db 32, 32, 32, 32, 114, 101, 116, 0
+section .text
+    lea rax, [rel str_250]
+    push rax
+    pop rax
+    mov rdi, rax
+    call ln
+L_if_else_280:
+L_if_end_280:
+section .rodata
+str_251: db 70, 82, 65, 77, 69, 95, 0
+section .text
+    lea rax, [rel str_251]
     push rax
     mov rax, QWORD [cg_fn]
     push rax
@@ -12699,9 +12886,9 @@ section .text
     mov rdi, rax
     call lab
 section .rodata
-str_249: db 32, 101, 113, 117, 32, 0
+str_252: db 32, 101, 113, 117, 32, 0
 section .text
-    lea rax, [rel str_249]
+    lea rax, [rel str_252]
     push rax
     pop rax
     mov rdi, rax
@@ -12728,27 +12915,27 @@ section .text
     call emit_nl
     leave
     ret
-FRAME_119 equ 32
+FRAME_120 equ 32
 gen_global:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_120
+    sub rsp, strict dword FRAME_121
     mov rax, rdi
     mov QWORD [rbp - 8], rax
     mov rax, rsi
     mov QWORD [rbp - 16], rax
 section .rodata
-str_250: db 115, 101, 99, 116, 105, 111, 110, 32, 46, 98, 115, 115, 0
+str_253: db 115, 101, 99, 116, 105, 111, 110, 32, 46, 98, 115, 115, 0
 section .text
-    lea rax, [rel str_250]
+    lea rax, [rel str_253]
     push rax
     pop rax
     mov rdi, rax
     call ln
 section .rodata
-str_251: db 97, 108, 105, 103, 110, 98, 32, 56, 0
+str_254: db 97, 108, 105, 103, 110, 98, 32, 56, 0
 section .text
-    lea rax, [rel str_251]
+    lea rax, [rel str_254]
     push rax
     pop rax
     mov rdi, rax
@@ -12767,9 +12954,9 @@ section .text
     mov rdi, rax
     call write_bytes
 section .rodata
-str_252: db 58, 32, 114, 101, 115, 98, 32, 0
+str_255: db 58, 32, 114, 101, 115, 98, 32, 0
 section .text
-    lea rax, [rel str_252]
+    lea rax, [rel str_255]
     push rax
     pop rax
     mov rdi, rax
@@ -12781,48 +12968,24 @@ section .text
     call print_uint
     call emit_nl
 section .rodata
-str_253: db 115, 101, 99, 116, 105, 111, 110, 32, 46, 116, 101, 120, 116, 0
-section .text
-    lea rax, [rel str_253]
-    push rax
-    pop rax
-    mov rdi, rax
-    call ln
-    leave
-    ret
-FRAME_120 equ 16
-gen_program:
-    push rbp
-    mov rbp, rsp
-    sub rsp, strict dword FRAME_121
-    mov rax, rdi
-    mov QWORD [rbp - 8], rax
-section .rodata
-str_254: db 100, 101, 102, 97, 117, 108, 116, 32, 114, 101, 108, 0
-section .text
-    lea rax, [rel str_254]
-    push rax
-    pop rax
-    mov rdi, rax
-    call ln
-section .rodata
-str_255: db 0
-section .text
-    lea rax, [rel str_255]
-    push rax
-    pop rax
-    mov rdi, rax
-    call ln
-section .rodata
-str_256: db 101, 120, 116, 101, 114, 110, 32, 119, 114, 105, 116, 101, 95, 98, 121, 116, 101, 115, 0
+str_256: db 115, 101, 99, 116, 105, 111, 110, 32, 46, 116, 101, 120, 116, 0
 section .text
     lea rax, [rel str_256]
     push rax
     pop rax
     mov rdi, rax
     call ln
+    leave
+    ret
+FRAME_121 equ 16
+gen_program:
+    push rbp
+    mov rbp, rsp
+    sub rsp, strict dword FRAME_122
+    mov rax, rdi
+    mov QWORD [rbp - 8], rax
 section .rodata
-str_257: db 101, 120, 116, 101, 114, 110, 32, 119, 114, 105, 116, 101, 95, 101, 114, 114, 0
+str_257: db 100, 101, 102, 97, 117, 108, 116, 32, 114, 101, 108, 0
 section .text
     lea rax, [rel str_257]
     push rax
@@ -12830,7 +12993,7 @@ section .text
     mov rdi, rax
     call ln
 section .rodata
-str_258: db 101, 120, 116, 101, 114, 110, 32, 115, 121, 115, 99, 97, 108, 108, 50, 0
+str_258: db 0
 section .text
     lea rax, [rel str_258]
     push rax
@@ -12838,7 +13001,7 @@ section .text
     mov rdi, rax
     call ln
 section .rodata
-str_259: db 101, 120, 116, 101, 114, 110, 32, 114, 101, 97, 100, 95, 102, 105, 108, 101, 0
+str_259: db 101, 120, 116, 101, 114, 110, 32, 119, 114, 105, 116, 101, 95, 98, 121, 116, 101, 115, 0
 section .text
     lea rax, [rel str_259]
     push rax
@@ -12846,7 +13009,7 @@ section .text
     mov rdi, rax
     call ln
 section .rodata
-str_260: db 101, 120, 116, 101, 114, 110, 32, 103, 101, 116, 95, 97, 114, 103, 0
+str_260: db 101, 120, 116, 101, 114, 110, 32, 119, 114, 105, 116, 101, 95, 101, 114, 114, 0
 section .text
     lea rax, [rel str_260]
     push rax
@@ -12854,7 +13017,7 @@ section .text
     mov rdi, rax
     call ln
 section .rodata
-str_261: db 101, 120, 116, 101, 114, 110, 32, 97, 114, 103, 95, 99, 111, 117, 110, 116, 0
+str_261: db 101, 120, 116, 101, 114, 110, 32, 115, 121, 115, 99, 97, 108, 108, 50, 0
 section .text
     lea rax, [rel str_261]
     push rax
@@ -12862,7 +13025,7 @@ section .text
     mov rdi, rax
     call ln
 section .rodata
-str_262: db 101, 120, 116, 101, 114, 110, 32, 114, 117, 110, 116, 105, 109, 101, 95, 105, 110, 105, 116, 0
+str_262: db 101, 120, 116, 101, 114, 110, 32, 114, 101, 97, 100, 95, 102, 105, 108, 101, 0
 section .text
     lea rax, [rel str_262]
     push rax
@@ -12870,7 +13033,7 @@ section .text
     mov rdi, rax
     call ln
 section .rodata
-str_263: db 101, 120, 116, 101, 114, 110, 32, 112, 111, 107, 101, 56, 0
+str_263: db 101, 120, 116, 101, 114, 110, 32, 103, 101, 116, 95, 97, 114, 103, 0
 section .text
     lea rax, [rel str_263]
     push rax
@@ -12878,7 +13041,7 @@ section .text
     mov rdi, rax
     call ln
 section .rodata
-str_264: db 0
+str_264: db 101, 120, 116, 101, 114, 110, 32, 97, 114, 103, 95, 99, 111, 117, 110, 116, 0
 section .text
     lea rax, [rel str_264]
     push rax
@@ -12886,7 +13049,7 @@ section .text
     mov rdi, rax
     call ln
 section .rodata
-str_265: db 103, 108, 111, 98, 97, 108, 32, 95, 115, 116, 97, 114, 116, 0
+str_265: db 101, 120, 116, 101, 114, 110, 32, 114, 117, 110, 116, 105, 109, 101, 95, 105, 110, 105, 116, 0
 section .text
     lea rax, [rel str_265]
     push rax
@@ -12894,7 +13057,7 @@ section .text
     mov rdi, rax
     call ln
 section .rodata
-str_266: db 95, 115, 116, 97, 114, 116, 58, 0
+str_266: db 101, 120, 116, 101, 114, 110, 32, 112, 111, 107, 101, 56, 0
 section .text
     lea rax, [rel str_266]
     push rax
@@ -12902,7 +13065,7 @@ section .text
     mov rdi, rax
     call ln
 section .rodata
-str_267: db 32, 32, 32, 32, 109, 111, 118, 32, 114, 100, 105, 44, 32, 114, 115, 112, 0
+str_267: db 0
 section .text
     lea rax, [rel str_267]
     push rax
@@ -12910,7 +13073,7 @@ section .text
     mov rdi, rax
     call ln
 section .rodata
-str_268: db 32, 32, 32, 32, 99, 97, 108, 108, 32, 114, 117, 110, 116, 105, 109, 101, 95, 105, 110, 105, 116, 0
+str_268: db 103, 108, 111, 98, 97, 108, 32, 95, 115, 116, 97, 114, 116, 0
 section .text
     lea rax, [rel str_268]
     push rax
@@ -12918,7 +13081,7 @@ section .text
     mov rdi, rax
     call ln
 section .rodata
-str_269: db 32, 32, 32, 32, 99, 97, 108, 108, 32, 109, 97, 105, 110, 0
+str_269: db 95, 115, 116, 97, 114, 116, 58, 0
 section .text
     lea rax, [rel str_269]
     push rax
@@ -12926,7 +13089,7 @@ section .text
     mov rdi, rax
     call ln
 section .rodata
-str_270: db 32, 32, 32, 32, 109, 111, 118, 32, 101, 100, 105, 44, 32, 101, 97, 120, 0
+str_270: db 32, 32, 32, 32, 109, 111, 118, 32, 114, 100, 105, 44, 32, 114, 115, 112, 0
 section .text
     lea rax, [rel str_270]
     push rax
@@ -12934,7 +13097,7 @@ section .text
     mov rdi, rax
     call ln
 section .rodata
-str_271: db 32, 32, 32, 32, 109, 111, 118, 32, 101, 97, 120, 44, 32, 54, 48, 0
+str_271: db 32, 32, 32, 32, 99, 97, 108, 108, 32, 114, 117, 110, 116, 105, 109, 101, 95, 105, 110, 105, 116, 0
 section .text
     lea rax, [rel str_271]
     push rax
@@ -12942,7 +13105,7 @@ section .text
     mov rdi, rax
     call ln
 section .rodata
-str_272: db 32, 32, 32, 32, 115, 121, 115, 99, 97, 108, 108, 0
+str_272: db 32, 32, 32, 32, 99, 97, 108, 108, 32, 109, 97, 105, 110, 0
 section .text
     lea rax, [rel str_272]
     push rax
@@ -12950,9 +13113,33 @@ section .text
     mov rdi, rax
     call ln
 section .rodata
-str_273: db 0
+str_273: db 32, 32, 32, 32, 109, 111, 118, 32, 101, 100, 105, 44, 32, 101, 97, 120, 0
 section .text
     lea rax, [rel str_273]
+    push rax
+    pop rax
+    mov rdi, rax
+    call ln
+section .rodata
+str_274: db 32, 32, 32, 32, 109, 111, 118, 32, 101, 97, 120, 44, 32, 54, 48, 0
+section .text
+    lea rax, [rel str_274]
+    push rax
+    pop rax
+    mov rdi, rax
+    call ln
+section .rodata
+str_275: db 32, 32, 32, 32, 115, 121, 115, 99, 97, 108, 108, 0
+section .text
+    lea rax, [rel str_275]
+    push rax
+    pop rax
+    mov rdi, rax
+    call ln
+section .rodata
+str_276: db 0
+section .text
+    lea rax, [rel str_276]
     push rax
     pop rax
     mov rdi, rax
@@ -12967,7 +13154,7 @@ section .text
     mov rdi, rax
     call ast_list_first
     mov QWORD [rbp - 24], rax
-L_rep_start_277:
+L_rep_start_281:
     mov rax, QWORD [rbp - 24]
     push rax
     mov rax, 0
@@ -12976,7 +13163,7 @@ L_rep_start_277:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_rep_end_277
+    jz L_rep_end_281
     mov rax, QWORD [rbp - 24]
     mov r11, rax
     movzx rax, byte [ast_kind + r11 * 1]
@@ -12987,7 +13174,7 @@ L_rep_start_277:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_278
+    jz L_if_else_282
     mov rax, QWORD [rbp - 24]
     mov r11, rax
     mov rax, QWORD [ast_name_ptr + r11 * 8]
@@ -13011,21 +13198,21 @@ L_rep_start_277:
     pop rax
     mov rdi, rax
     call con_add
-L_if_else_278:
-L_if_end_278:
+L_if_else_282:
+L_if_end_282:
     mov rax, QWORD [rbp - 24]
     mov r11, rax
     mov rax, QWORD [ast_next + r11 * 8]
     mov QWORD [rbp - 24], rax
-    jmp L_rep_start_277
-L_rep_end_277:
+    jmp L_rep_start_281
+L_rep_end_281:
     mov rax, QWORD [rbp - 16]
     push rax
     pop rax
     mov rdi, rax
     call ast_list_first
     mov QWORD [rbp - 24], rax
-L_rep_start_279:
+L_rep_start_283:
     mov rax, QWORD [rbp - 24]
     push rax
     mov rax, 0
@@ -13034,7 +13221,7 @@ L_rep_start_279:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_rep_end_279
+    jz L_rep_end_283
     mov rax, QWORD [rbp - 24]
     mov r11, rax
     movzx rax, byte [ast_kind + r11 * 1]
@@ -13047,7 +13234,7 @@ L_rep_start_279:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_280
+    jz L_if_else_284
     mov rax, QWORD [rbp - 24]
     mov r11, rax
     mov rax, QWORD [ast_name_ptr + r11 * 8]
@@ -13098,8 +13285,8 @@ L_rep_start_279:
     pop rax
     mov rdi, rax
     call gen_global
-L_if_else_280:
-L_if_end_280:
+L_if_else_284:
+L_if_end_284:
     mov rax, QWORD [rbp - 32]
     push rax
     mov rax, 14
@@ -13108,7 +13295,7 @@ L_if_end_280:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_281
+    jz L_if_else_285
     mov rax, QWORD [rbp - 24]
     mov r11, rax
     mov rax, QWORD [ast_a + r11 * 8]
@@ -13123,7 +13310,7 @@ L_if_end_280:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_282
+    jz L_if_else_286
     mov rax, QWORD [rbp - 24]
     mov r11, rax
     mov rax, QWORD [ast_name_ptr + r11 * 8]
@@ -13201,8 +13388,8 @@ L_if_end_280:
     pop rax
     mov rdi, rax
     call gen_global
-    jmp L_if_end_282
-L_if_else_282:
+    jmp L_if_end_286
+L_if_else_286:
     mov rax, QWORD [rbp - 24]
     mov r11, rax
     mov rax, QWORD [ast_name_ptr + r11 * 8]
@@ -13255,15 +13442,15 @@ L_if_else_282:
     pop rax
     mov rdi, rax
     call gen_global
-L_if_end_282:
-L_if_else_281:
-L_if_end_281:
+L_if_end_286:
+L_if_else_285:
+L_if_end_285:
     mov rax, QWORD [rbp - 24]
     mov r11, rax
     mov rax, QWORD [ast_next + r11 * 8]
     mov QWORD [rbp - 24], rax
-    jmp L_rep_start_279
-L_rep_end_279:
+    jmp L_rep_start_283
+L_rep_end_283:
     mov rax, QWORD [nib_count]
     mov QWORD [nib_global], rax
     mov rax, QWORD [rbp - 16]
@@ -13272,7 +13459,7 @@ L_rep_end_279:
     mov rdi, rax
     call ast_list_first
     mov QWORD [rbp - 24], rax
-L_rep_start_283:
+L_rep_start_287:
     mov rax, QWORD [rbp - 24]
     push rax
     mov rax, 0
@@ -13281,7 +13468,7 @@ L_rep_start_283:
     setne al
     movzx rax, al
     test rax, rax
-    jz L_rep_end_283
+    jz L_rep_end_287
     mov rax, QWORD [rbp - 24]
     mov r11, rax
     movzx rax, byte [ast_kind + r11 * 1]
@@ -13292,28 +13479,443 @@ L_rep_start_283:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_284
+    jz L_if_else_288
     mov rax, QWORD [rbp - 24]
     push rax
     pop rax
     mov rdi, rax
     call gen_func
-L_if_else_284:
-L_if_end_284:
+L_if_else_288:
+L_if_end_288:
     mov rax, QWORD [rbp - 24]
     mov r11, rax
     mov rax, QWORD [ast_next + r11 * 8]
     mov QWORD [rbp - 24], rax
-    jmp L_rep_start_283
-L_rep_end_283:
+    jmp L_rep_start_287
+L_rep_end_287:
     mov rax, 0
     leave
     ret
-FRAME_121 equ 32
+FRAME_122 equ 32
+fold_calc:
+    push rbp
+    mov rbp, rsp
+    sub rsp, strict dword FRAME_123
+    mov rax, rdi
+    mov QWORD [rbp - 8], rax
+    mov rax, rsi
+    mov QWORD [rbp - 16], rax
+    mov rax, rdx
+    mov QWORD [rbp - 24], rax
+    mov rax, 1
+    mov QWORD [fold_ok], rax
+    mov rax, QWORD [rbp - 8]
+    push rax
+    mov rax, 16
+    pop rbx
+    cmp rbx, rax
+    sete al
+    movzx rax, al
+    test rax, rax
+    jz L_if_else_289
+    mov rax, QWORD [rbp - 16]
+    push rax
+    mov rax, QWORD [rbp - 24]
+    pop rbx
+    add rax, rbx
+    leave
+    ret
+L_if_else_289:
+L_if_end_289:
+    mov rax, QWORD [rbp - 8]
+    push rax
+    mov rax, 17
+    pop rbx
+    cmp rbx, rax
+    sete al
+    movzx rax, al
+    test rax, rax
+    jz L_if_else_290
+    mov rax, QWORD [rbp - 16]
+    push rax
+    mov rax, QWORD [rbp - 24]
+    pop rbx
+    mov rcx, rax
+    mov rax, rbx
+    sub rax, rcx
+    leave
+    ret
+L_if_else_290:
+L_if_end_290:
+    mov rax, QWORD [rbp - 8]
+    push rax
+    mov rax, 18
+    pop rbx
+    cmp rbx, rax
+    sete al
+    movzx rax, al
+    test rax, rax
+    jz L_if_else_291
+    mov rax, QWORD [rbp - 16]
+    push rax
+    mov rax, QWORD [rbp - 24]
+    pop rbx
+    imul rax, rbx
+    leave
+    ret
+L_if_else_291:
+L_if_end_291:
+    mov rax, QWORD [rbp - 8]
+    push rax
+    mov rax, 15
+    pop rbx
+    cmp rbx, rax
+    sete al
+    movzx rax, al
+    test rax, rax
+    jz L_if_else_292
+    mov rax, QWORD [rbp - 16]
+    push rax
+    mov rax, QWORD [rbp - 24]
+    pop rbx
+    cmp rbx, rax
+    sete al
+    movzx rax, al
+    leave
+    ret
+L_if_else_292:
+L_if_end_292:
+    mov rax, QWORD [rbp - 8]
+    push rax
+    mov rax, 38
+    pop rbx
+    cmp rbx, rax
+    sete al
+    movzx rax, al
+    test rax, rax
+    jz L_if_else_293
+    mov rax, QWORD [rbp - 16]
+    push rax
+    mov rax, QWORD [rbp - 24]
+    pop rbx
+    cmp rbx, rax
+    setne al
+    movzx rax, al
+    leave
+    ret
+L_if_else_293:
+L_if_end_293:
+    mov rax, QWORD [rbp - 8]
+    push rax
+    mov rax, 20
+    pop rbx
+    cmp rbx, rax
+    sete al
+    movzx rax, al
+    test rax, rax
+    jz L_if_else_294
+    mov rax, QWORD [rbp - 16]
+    push rax
+    mov rax, QWORD [rbp - 24]
+    pop rbx
+    cmp rbx, rax
+    setl al
+    movzx rax, al
+    leave
+    ret
+L_if_else_294:
+L_if_end_294:
+    mov rax, QWORD [rbp - 8]
+    push rax
+    mov rax, 21
+    pop rbx
+    cmp rbx, rax
+    sete al
+    movzx rax, al
+    test rax, rax
+    jz L_if_else_295
+    mov rax, QWORD [rbp - 16]
+    push rax
+    mov rax, QWORD [rbp - 24]
+    pop rbx
+    cmp rbx, rax
+    setg al
+    movzx rax, al
+    leave
+    ret
+L_if_else_295:
+L_if_end_295:
+    mov rax, QWORD [rbp - 8]
+    push rax
+    mov rax, 22
+    pop rbx
+    cmp rbx, rax
+    sete al
+    movzx rax, al
+    test rax, rax
+    jz L_if_else_296
+    mov rax, QWORD [rbp - 16]
+    push rax
+    mov rax, QWORD [rbp - 24]
+    pop rbx
+    cmp rbx, rax
+    setle al
+    movzx rax, al
+    leave
+    ret
+L_if_else_296:
+L_if_end_296:
+    mov rax, QWORD [rbp - 8]
+    push rax
+    mov rax, 23
+    pop rbx
+    cmp rbx, rax
+    sete al
+    movzx rax, al
+    test rax, rax
+    jz L_if_else_297
+    mov rax, QWORD [rbp - 16]
+    push rax
+    mov rax, QWORD [rbp - 24]
+    pop rbx
+    cmp rbx, rax
+    setge al
+    movzx rax, al
+    leave
+    ret
+L_if_else_297:
+L_if_end_297:
+    mov rax, QWORD [rbp - 24]
+    push rax
+    mov rax, 0
+    pop rbx
+    cmp rbx, rax
+    setne al
+    movzx rax, al
+    test rax, rax
+    jz L_if_else_298
+    mov rax, QWORD [rbp - 8]
+    push rax
+    mov rax, 19
+    pop rbx
+    cmp rbx, rax
+    sete al
+    movzx rax, al
+    test rax, rax
+    jz L_if_else_299
+    mov rax, QWORD [rbp - 16]
+    push rax
+    mov rax, QWORD [rbp - 24]
+    pop rbx
+    xchg rax, rbx
+    xor rdx, rdx
+    div rbx
+    leave
+    ret
+L_if_else_299:
+L_if_end_299:
+    mov rax, QWORD [rbp - 8]
+    push rax
+    mov rax, 47
+    pop rbx
+    cmp rbx, rax
+    sete al
+    movzx rax, al
+    test rax, rax
+    jz L_if_else_300
+    mov rax, QWORD [rbp - 16]
+    push rax
+    mov rax, QWORD [rbp - 16]
+    push rax
+    mov rax, QWORD [rbp - 24]
+    pop rbx
+    xchg rax, rbx
+    xor rdx, rdx
+    div rbx
+    push rax
+    mov rax, QWORD [rbp - 24]
+    pop rbx
+    imul rax, rbx
+    pop rbx
+    mov rcx, rax
+    mov rax, rbx
+    sub rax, rcx
+    leave
+    ret
+L_if_else_300:
+L_if_end_300:
+L_if_else_298:
+L_if_end_298:
+    mov rax, 0
+    mov QWORD [fold_ok], rax
+    mov rax, 0
+    leave
+    ret
+FRAME_123 equ 32
+fold_binop:
+    push rbp
+    mov rbp, rsp
+    sub rsp, strict dword FRAME_124
+    mov rax, rdi
+    mov QWORD [rbp - 8], rax
+    mov rax, QWORD [rbp - 8]
+    mov r11, rax
+    mov rax, QWORD [ast_a + r11 * 8]
+    mov QWORD [rbp - 16], rax
+    mov rax, QWORD [rbp - 8]
+    mov r11, rax
+    mov rax, QWORD [ast_b + r11 * 8]
+    mov QWORD [rbp - 24], rax
+    mov rax, QWORD [rbp - 16]
+    mov r11, rax
+    movzx rax, byte [ast_kind + r11 * 1]
+    push rax
+    mov rax, 1
+    pop rbx
+    cmp rbx, rax
+    setne al
+    movzx rax, al
+    test rax, rax
+    jz L_if_else_301
+    mov rax, 0
+    leave
+    ret
+L_if_else_301:
+L_if_end_301:
+    mov rax, QWORD [rbp - 24]
+    mov r11, rax
+    movzx rax, byte [ast_kind + r11 * 1]
+    push rax
+    mov rax, 1
+    pop rbx
+    cmp rbx, rax
+    setne al
+    movzx rax, al
+    test rax, rax
+    jz L_if_else_302
+    mov rax, 0
+    leave
+    ret
+L_if_else_302:
+L_if_end_302:
+    mov rax, QWORD [rbp - 8]
+    mov r11, rax
+    mov rax, QWORD [ast_c + r11 * 8]
+    push rax
+    mov rax, QWORD [rbp - 16]
+    mov r11, rax
+    mov rax, QWORD [ast_a + r11 * 8]
+    push rax
+    mov rax, QWORD [rbp - 24]
+    mov r11, rax
+    mov rax, QWORD [ast_a + r11 * 8]
+    push rax
+    pop rax
+    mov rdx, rax
+    pop rax
+    mov rsi, rax
+    pop rax
+    mov rdi, rax
+    call fold_calc
+    mov QWORD [rbp - 32], rax
+    mov rax, QWORD [fold_ok]
+    push rax
+    mov rax, 1
+    pop rbx
+    cmp rbx, rax
+    sete al
+    movzx rax, al
+    test rax, rax
+    jz L_if_else_303
+    mov rax, QWORD [rbp - 8]
+    push rax
+    mov rax, 1
+    mov r12, rax
+    pop r11
+    mov byte [ast_kind + r11 * 1], r12b
+    mov rax, QWORD [rbp - 8]
+    push rax
+    mov rax, QWORD [rbp - 32]
+    mov r12, rax
+    pop r11
+    mov QWORD [ast_a + r11 * 8], r12
+    mov rax, QWORD [rbp - 8]
+    push rax
+    mov rax, 0
+    mov r12, rax
+    pop r11
+    mov QWORD [ast_b + r11 * 8], r12
+    mov rax, QWORD [rbp - 8]
+    push rax
+    mov rax, 0
+    mov r12, rax
+    pop r11
+    mov QWORD [ast_c + r11 * 8], r12
+L_if_else_303:
+L_if_end_303:
+    mov rax, 0
+    leave
+    ret
+FRAME_124 equ 32
+constant_fold:
+    push rbp
+    mov rbp, rsp
+    sub rsp, strict dword FRAME_125
+    mov rax, 1
+    mov QWORD [rbp - 8], rax
+L_rep_start_304:
+    mov rax, QWORD [rbp - 8]
+    push rax
+    mov rax, QWORD [ast_count]
+    pop rbx
+    cmp rbx, rax
+    setle al
+    movzx rax, al
+    test rax, rax
+    jz L_rep_end_304
+    mov rax, QWORD [rbp - 8]
+    mov r11, rax
+    movzx rax, byte [ast_kind + r11 * 1]
+    push rax
+    mov rax, 7
+    pop rbx
+    cmp rbx, rax
+    sete al
+    movzx rax, al
+    test rax, rax
+    jz L_if_else_305
+    mov rax, QWORD [rbp - 8]
+    push rax
+    pop rax
+    mov rdi, rax
+    call fold_binop
+L_if_else_305:
+L_if_end_305:
+    mov rax, QWORD [rbp - 8]
+    push rax
+    mov rax, 1
+    pop rbx
+    add rax, rbx
+    mov QWORD [rbp - 8], rax
+    jmp L_rep_start_304
+L_rep_end_304:
+    mov rax, 0
+    leave
+    ret
+FRAME_125 equ 16
+optimize:
+    push rbp
+    mov rbp, rsp
+    sub rsp, strict dword FRAME_126
+    call constant_fold
+    mov rax, 0
+    leave
+    ret
+FRAME_126 equ 0
 main:
     push rbp
     mov rbp, rsp
-    sub rsp, strict dword FRAME_122
+    sub rsp, strict dword FRAME_127
     mov rax, 1
     push rax
     pop rax
@@ -13326,11 +13928,11 @@ main:
     sete al
     movzx rax, al
     test rax, rax
-    jz L_if_else_285
+    jz L_if_else_306
 section .rodata
-str_274: db 85, 115, 97, 103, 101, 58, 32, 122, 101, 114, 111, 32, 60, 115, 111, 117, 114, 99, 101, 46, 122, 114, 62, 10, 0
+str_277: db 85, 115, 97, 103, 101, 58, 32, 122, 101, 114, 111, 32, 60, 115, 111, 117, 114, 99, 101, 46, 122, 114, 62, 10, 0
 section .text
-    lea rax, [rel str_274]
+    lea rax, [rel str_277]
     push rax
     pop rax
     mov rdi, rax
@@ -13338,8 +13940,8 @@ section .text
     mov rax, 1
     leave
     ret
-L_if_else_285:
-L_if_end_285:
+L_if_else_306:
+L_if_end_306:
     mov rax, 1
     push rax
     pop rax
@@ -13359,4 +13961,4 @@ L_if_end_285:
     mov rax, 0
     leave
     ret
-FRAME_122 equ 16
+FRAME_127 equ 16

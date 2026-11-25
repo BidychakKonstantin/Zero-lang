@@ -1,0 +1,8 @@
+use constant_opt
+
+// Runs all optimization passes over the AST.
+// Add new passes here, one call per pass.
+optimize() -> nat64 {
+    constant_fold()
+    ret 0
+}

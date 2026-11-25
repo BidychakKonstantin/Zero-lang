@@ -1,0 +1,80 @@
+use super tokens
+use super ast
+
+// Constant folding: replaces BINOP nodes whose operands are both numbers
+// with a single NUM node. Runs as a separate pass over the finished AST.
+
+nat64 fold_ok = 0
+
+fold_calc(nat64 op, nat64 x, nat64 y) -> nat64 {
+    fold_ok = 1
+    if op == TOK_PLUS {
+        ret x + y
+    }
+    if op == TOK_MINUS {
+        ret x - y
+    }
+    if op == TOK_STAR {
+        ret x * y
+    }
+    if op == TOK_EQEQ {
+        ret x == y
+    }
+    if op == TOK_NOTEQ {
+        ret x != y
+    }
+    if op == TOK_LT {
+        ret x < y
+    }
+    if op == TOK_GT {
+        ret x > y
+    }
+    if op == TOK_LTE {
+        ret x <= y
+    }
+    if op == TOK_GTE {
+        ret x >= y
+    }
+    if y != 0 {
+        if op == TOK_SLASH {
+            ret x / y
+        }
+        if op == TOK_REMAINDER {
+            ret x % y
+        }
+    }
+    fold_ok = 0
+    ret 0
+}
+
+fold_binop(nat64 id) -> nat64 {
+    nat64 l = ast_a[id]
+    nat64 r = ast_b[id]
+    if ast_kind[l] != TOK_ND_NUM {
+        ret 0
+    }
+    if ast_kind[r] != TOK_ND_NUM {
+        ret 0
+    }
+    nat64 res = fold_calc(ast_c[id], ast_a[l], ast_a[r])
+    if fold_ok == 1 {
+        ast_kind[id] = TOK_ND_NUM
+        ast_a[id] = res
+        ast_b[id] = 0
+        ast_c[id] = 0
+    }
+    ret 0
+}
+
+// Children always have smaller ids than their parents,
+// so one pass folds nested expressions too.
+constant_fold() -> nat64 {
+    nat64 id = 1
+    rep id <= ast_count {
+        if ast_kind[id] == TOK_ND_BINOP {
+            fold_binop(id)
+        }
+        id = id + 1
+    }
+    ret 0
+}

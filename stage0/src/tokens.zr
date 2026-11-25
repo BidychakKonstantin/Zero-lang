@@ -40,6 +40,7 @@ nat8 TOK_REMAINDER  = 47    // %  (was 20, clashed with TOK_LT)
 // ---- comparison ----
 nat8 TOK_EQEQ       = 15    // ==
 nat8 TOK_NOTEQ      = 38    // !=
+nat8 TOK_BANG       = 48    // !
 nat8 TOK_LT         = 20    // <
 nat8 TOK_GT         = 21    // >
 nat8 TOK_LTE        = 22    // <=

@@ -721,6 +721,13 @@ gen_stmt(nat64 node) -> nat64 {
         loc_add(ast_name_ptr[node], ast_name_len[node], slots, at, 0, 1)
         ret 0
     }
+    if kind == TOK_ND_PTRASSIGN {
+        gen_expr(ast_a[node])
+        ln("    push rax")
+        gen_expr(ast_b[node])
+        ln("    pop rbx")
+        ret ln("    mov byte [rbx], al")
+    }
     if kind == TOK_ND_ASSIGN {
         gen_expr(ast_a[node])
         nat64 ap = ast_name_ptr[node]

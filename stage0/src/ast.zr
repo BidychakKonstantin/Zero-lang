@@ -21,6 +21,7 @@ nat8 TOK_ND_FUNC      = 20
 nat8 TOK_ND_PROGRAM   = 21
 nat8 TOK_ND_GLOBALVAR = 22
 nat8 TOK_ND_LIST      = 23
+nat8 TOK_ND_PTRASSIGN = 25
 
 
 nat8  ast_kind[65536]
@@ -254,5 +255,12 @@ ast_program(nat64 top_list) -> nat64 {
     nat64 id = ast_next_node()
     ast_kind[id] = TOK_ND_PROGRAM
     ast_a[id] = top_list
+    ret id
+}
+ast_ptrassign(nat64 addr, nat64 value) -> nat64 {
+    nat64 id = ast_next_node()
+    ast_kind[id] = TOK_ND_PTRASSIGN
+    ast_a[id] = addr
+    ast_b[id] = value
     ret id
 }
